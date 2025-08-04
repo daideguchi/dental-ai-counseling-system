@@ -178,7 +178,7 @@ body {
 .step-title {
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--gray-600);
+    color: var(--gray-800);
     text-align: center;
     transition: color 0.3s ease;
 }
@@ -336,8 +336,8 @@ body {
 .upload-divider {
     display: flex;
     align-items: center;
-    color: var(--gray-500);
-    font-weight: 500;
+    color: var(--gray-800);
+    font-weight: 600;
     font-size: 0.875rem;
     padding: var(--spacing-md);
     background: var(--gray-100);
@@ -688,9 +688,10 @@ body {
 }
 
 .process-info p {
-    color: var(--gray-600);
+    color: var(--gray-800);
     font-size: 0.875rem;
     margin: 0;
+    font-weight: 500;
 }
 
 .process-status {
@@ -1015,7 +1016,7 @@ body {
     background: none;
     border: none;
     font-size: 1.25rem;
-    color: var(--gray-600);
+    color: var(--gray-800);
     cursor: pointer;
     padding: var(--spacing-sm);
     border-radius: var(--radius-sm);
