@@ -404,103 +404,105 @@ Dentist: どのあたりが特に気になりますか？</code></pre>
                     </button>
                 </div>
 
-                <!-- DB仕様（固定）: どのテーブル/カラムに、どんな形式で格納されるか -->
-                <div class="format-info-panel" style="margin-top: 16px;">
-                    <div class="format-grid">
-                        <div class="format-item">
-                            <h4><i class="fas fa-database"></i> DB格納仕様（固定・変更可）</h4>
-                            <div class="code-examples">
-                                <div class="example-block">
-                                    <div class="example-header">
-                                        <div class="example-title">
-                                            <span class="badge md"><span class="icon">TABLE</span> counseling_sessions</span>
-                                        </div>
-                                        <span class="example-ext">主テーブル</span>
-                                    </div>
-                                    <pre><code>{
-  "table": "counseling_sessions",
-  "columns": {
-    "id": "TEXT(50) PK 例: rec_20250804_xxxx",
-    "patient_id": "TEXT 例: P12345",
-    "doctor_id": "TEXT 例: D001",
-    "appointment_id": "TEXT 例: APT-001",
-    "start_time": "DATETIME ISO8601 例: 2025-08-04T14:25:47",
-    "end_time": "DATETIME ISO8601",
-    "audio_file_path": "TEXT",
-    "transcript": "TEXT (元会話全量/任意)",
-    "soap_note": "JSON {S,O,A,P,confidence,key_points[]}",
-    "confidence_score": "REAL (0.0-1.0)",
-    "status": "TEXT processing|completed|error",
-    "created_at": "DATETIME",
-    "updated_at": "DATETIME"
-  }
-}</code></pre>
+                <!-- データベース保存仕様（視認性改善版） -->
+                <div class="db-specification-panel">
+                    <div class="db-spec-header">
+                        <h3><i class="fas fa-database"></i> データベース保存仕様</h3>
+                        <p>SOAP記録は以下の形式でデータベースに保存されます</p>
+                    </div>
+                    
+                    <div class="db-spec-grid">
+                        <div class="db-spec-card">
+                            <div class="spec-card-header">
+                                <h4>テーブル構造</h4>
+                                <span class="spec-badge">counseling_sessions</span>
+                            </div>
+                            <div class="spec-content">
+                                <div class="spec-item">
+                                    <span class="field-name">id</span>
+                                    <span class="field-type">TEXT(50) PRIMARY KEY</span>
+                                    <span class="field-desc">セッション識別子</span>
                                 </div>
-
-                                <!-- カラムの意味（人が読んで分かる説明） -->
-                                <div class="example-block">
-                                    <div class="example-header">
-                                        <div class="example-title">
-                                            <span class="badge txt"><span class="icon">DOC</span> カラム説明</span>
-                                        </div>
-                                        <span class="example-ext">human-readable</span>
-                                    </div>
-                                    <pre><code>- id: セッション一意ID。録音IDや処理IDを格納（例: rec_日付_ランダム）
-- patient_id: 患者の識別子。外部システムや予約CSVと突合可能なID
-- doctor_id: 担当医師の識別子。外部システムと突合可能なID
-- appointment_id: 予約レコードのID。予約CSVの appointment_id と連携
-- start_time: 録音/処理の開始日時（ISO8601）。解析開始時刻でも可
-- end_time: 録音/処理の終了日時（ISO8601）
-- audio_file_path: 音声ファイルの保存パス（UI経由の相対パス/絶対パス）
-- transcript: 元会話のプレーンテキスト全量（任意）。TXT/CSV/SRTから統合した内容も可
-- soap_note: SOAP構造化データ（JSON）。S,O,A,Pに加え、confidence, key_points を含む
-  例: { "S": "...", "O": "...", "A": "...", "P": "...", "confidence": 0.85, "key_points": ["..."] }
-- confidence_score: 解析全体の信頼度（0.0〜1.0）
-- status: 処理状態（processing|completed|error）
-- created_at: レコード作成日時（システム自動）
-- updated_at: レコード更新日時（システム自動）</code></pre>
+                                <div class="spec-item">
+                                    <span class="field-name">patient_id</span>
+                                    <span class="field-type">TEXT</span>
+                                    <span class="field-desc">患者ID</span>
                                 </div>
-
-                                <div class="example-block">
-                                    <div class="example-header">
-                                        <div class="example-title">
-                                            <span class="badge csv"><span class="icon">MAP</span> UI ➜ DB 保存マッピング</span>
-                                        </div>
-                                        <span class="example-ext">保存時</span>
-                                    </div>
-                                    <pre><code>// 保存ボタン押下で格納される値（例）
-counseling_sessions = {
-  "id": "(自動生成ID)",
-  "patient_id": "(推定 or 連携ID)",
-  "doctor_id": "(推定 or 連携ID)",
-  "appointment_id": "(任意)",
-  "start_time": "(処理開始時刻)",
-  "end_time": "(処理終了時刻)",
-  "audio_file_path": "(任意)",
-  "transcript": "(元テキスト/未設定可)",
-  "soap_note": {
-    "S": "(主観)", "O": "(客観)", "A": "(評価)", "P": "(計画)",
-    "confidence": 0.85, "key_points": ["..."]
-  },
-  "confidence_score": 0.85,
-  "status": "completed",
-  "created_at": "(保存時刻)",
-  "updated_at": "(保存時刻)"
-}</code></pre>
+                                <div class="spec-item">
+                                    <span class="field-name">doctor_id</span>
+                                    <span class="field-type">TEXT</span>
+                                    <span class="field-desc">医師ID</span>
                                 </div>
-
-                                <div class="example-block">
-                                    <div class="example-header">
-                                        <div class="example-title">
-                                            <span class="badge txt"><span class="icon">NOTE</span> 注意事項</span>
-                                        </div>
-                                        <span class="example-ext">固定/変更可</span>
-                                    </div>
-                                    <pre><code>本DB仕様は初期リリースでは固定です。
-将来的な運用要件に応じてスキーマ変更は可能です（移行はマイグレーションで対応）。</code></pre>
+                                <div class="spec-item">
+                                    <span class="field-name">soap_note</span>
+                                    <span class="field-type">JSON</span>
+                                    <span class="field-desc">SOAP記録データ</span>
+                                </div>
+                                <div class="spec-item">
+                                    <span class="field-name">confidence_score</span>
+                                    <span class="field-type">REAL</span>
+                                    <span class="field-desc">信頼度（0.0-1.0）</span>
                                 </div>
                             </div>
                         </div>
+
+                        <div class="db-spec-card">
+                            <div class="spec-card-header">
+                                <h4>SOAP記録フォーマット</h4>
+                                <span class="spec-badge">JSON構造</span>
+                            </div>
+                            <div class="spec-content">
+                                <div class="json-example">
+                                    <div class="json-field">
+                                        <span class="json-key">"S"</span>: 主観的情報（患者の訴え）
+                                    </div>
+                                    <div class="json-field">
+                                        <span class="json-key">"O"</span>: 客観的所見（医師の観察）
+                                    </div>
+                                    <div class="json-field">
+                                        <span class="json-key">"A"</span>: 評価・診断（医師の判断）
+                                    </div>
+                                    <div class="json-field">
+                                        <span class="json-key">"P"</span>: 計画（治療方針）
+                                    </div>
+                                    <div class="json-field">
+                                        <span class="json-key">"confidence"</span>: 信頼度スコア
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="db-spec-card">
+                            <div class="spec-card-header">
+                                <h4>保存時の動作</h4>
+                                <span class="spec-badge">自動処理</span>
+                            </div>
+                            <div class="spec-content">
+                                <div class="process-flow">
+                                    <div class="flow-step">
+                                        <span class="flow-number">1</span>
+                                        <span class="flow-text">ファイル内容を解析</span>
+                                    </div>
+                                    <div class="flow-step">
+                                        <span class="flow-number">2</span>
+                                        <span class="flow-text">SOAP形式に変換</span>
+                                    </div>
+                                    <div class="flow-step">
+                                        <span class="flow-number">3</span>
+                                        <span class="flow-text">品質分析を実行</span>
+                                    </div>
+                                    <div class="flow-step">
+                                        <span class="flow-number">4</span>
+                                        <span class="flow-text">データベースに保存</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="db-spec-note">
+                        <i class="fas fa-info-circle"></i>
+                        <span>データベース構造は初期設定のため、運用要件に応じて変更可能です。</span>
                     </div>
                 </div>
             </div>

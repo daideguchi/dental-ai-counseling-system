@@ -1231,6 +1231,179 @@ body {
     color: #ffffff !important;
 }
 
+/* データベース仕様パネル（視認性改善） */
+.db-specification-panel {
+    margin: var(--spacing-lg) 0;
+    background: #ffffff;
+    border: 2px solid var(--gray-300);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+}
+
+.db-spec-header {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 2px solid var(--gray-200);
+}
+
+.db-spec-header h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-sm);
+}
+
+.db-spec-header p {
+    color: var(--gray-700);
+    font-size: 1rem;
+    margin: 0;
+}
+
+.db-spec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.db-spec-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.spec-card-header {
+    background: var(--primary-color);
+    color: white;
+    padding: var(--spacing-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.spec-card-header h4 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.spec-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.spec-content {
+    padding: var(--spacing-lg);
+}
+
+.spec-item {
+    display: grid;
+    grid-template-columns: 120px 100px 1fr;
+    gap: var(--spacing-sm);
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.spec-item:last-child {
+    border-bottom: none;
+}
+
+.field-name {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--primary-color);
+    background: var(--gray-100);
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+}
+
+.field-type {
+    background: var(--warning-color);
+    color: white;
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.field-desc {
+    color: var(--gray-800);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.json-example {
+    background: var(--gray-900);
+    color: var(--gray-100);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    font-family: monospace;
+}
+
+.json-field {
+    margin-bottom: var(--spacing-sm);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.json-key {
+    color: #4ade80;
+    font-weight: 600;
+}
+
+.process-flow {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.flow-step {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--gray-100);
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--primary-color);
+}
+
+.flow-number {
+    background: var(--primary-color);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.flow-text {
+    color: var(--gray-800);
+    font-weight: 500;
+}
+
+.db-spec-note {
+    margin-top: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background: var(--info-color);
+    color: white;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 0.875rem;
+}
+
 /* 印刷スタイル */
 @media print {
     .app-header,

@@ -281,13 +281,69 @@ function updateProgress(percentage) {
     }
 }
 
-// ファイル内容読み込み
+// ファイル内容読み込み（改善版：エラー処理とファイル検証を強化）
 async function readFileContent(file) {
+    console.log('📖 ファイル読み込み開始:', { 
+        name: file.name, 
+        size: file.size, 
+        type: file.type 
+    });
+    
     return new Promise((resolve, reject) => {
+        // ファイルサイズチェック（10MB制限）
+        if (file.size > 10 * 1024 * 1024) {
+            reject(new Error('ファイルサイズが大きすぎます（10MB以下にしてください）'));
+            return;
+        }
+        
+        // 空ファイルチェック
+        if (file.size === 0) {
+            reject(new Error('空のファイルです'));
+            return;
+        }
+        
         const reader = new FileReader();
-        reader.onload = e => resolve(e.target.result);
-        reader.onerror = reject;
-        reader.readAsText(file, 'UTF-8');
+        
+        reader.onload = function(e) {
+            const content = e.target.result;
+            
+            // 内容検証
+            if (!content || content.trim().length === 0) {
+                reject(new Error('ファイル内容が空です'));
+                return;
+            }
+            
+            // 最小文字数チェック（意味のある内容があるか）
+            if (content.trim().length < 10) {
+                reject(new Error('ファイル内容が短すぎます（10文字以上必要）'));
+                return;
+            }
+            
+            console.log('✅ ファイル読み込み成功:', { 
+                contentLength: content.length,
+                firstChars: content.substring(0, 50) + '...'
+            });
+            
+            resolve(content);
+        };
+        
+        reader.onerror = function(error) {
+            console.error('❌ ファイル読み込みエラー:', error);
+            reject(new Error('ファイルの読み込みに失敗しました'));
+        };
+        
+        reader.onabort = function() {
+            console.error('❌ ファイル読み込み中断');
+            reject(new Error('ファイル読み込みが中断されました'));
+        };
+        
+        // エンコーディングを明示的に指定してテキストとして読み込み
+        try {
+            reader.readAsText(file, 'UTF-8');
+        } catch (error) {
+            console.error('❌ ファイルリーダー初期化エラー:', error);
+            reject(new Error('ファイルリーダーの初期化に失敗しました'));
+        }
     });
 }
 
@@ -562,84 +618,191 @@ function identifyPatientDoctor(content) {
     };
 }
 
-// SOAP変換（実際の内容から）
+// SOAP変換（改善版：より正確な分類と自然な文章生成）
 function convertToSOAP(content, fileAnalysis) {
     const soap = { S: '', O: '', A: '', P: '' };
     
-    // 歯科特有のキーワード分析
+    // 拡張された歯科特有のキーワード分析
     const keywords = {
-        subjective: ['痛い', '痛み', 'しみる', '違和感', '気になる', '腫れ', 'ズキズキ', 'キーン', '不快'],
-        objective: ['う蝕', '歯髄', '打診痛', '冷水痛', '歯肉', '歯石', '動揺', '腫脹', '出血', '変色'],
-        assessment: ['診断', '虫歯', '歯周病', '根尖病変', '咬合', '炎症', '感染', 'カリエス'],
-        plan: ['治療', '充填', '抜歯', '根管治療', '予約', 'CR', 'インレー', 'クラウン', 'スケーリング']
+        subjective: {
+            pain: ['痛い', '痛み', 'ズキズキ', 'ジンジン', 'チクチク', '激痛', '鈍痛'],
+            sensitivity: ['しみる', 'キーン', '冷たい', '熱い', '甘い'],
+            discomfort: ['違和感', '気になる', '不快', 'むずむず', 'ヒリヒリ'],
+            swelling: ['腫れ', '腫れた', '膨らん', '腫脹'],
+            other: ['噛めない', '口が開かない', '血が出る', '口臭', '味がしない']
+        },
+        objective: {
+            dental: ['う蝕', 'C1', 'C2', 'C3', 'C4', 'カリエス', '虫歯', '穴'],
+            periodontal: ['歯肉', '歯茎', '歯石', 'プラーク', '歯周病', '出血', 'BOP'],
+            examination: ['打診痛', '冷水痛', '温熱痛', '咬合痛', '動揺', '変色', '破折'],
+            radiographic: ['レントゲン', 'X線', '根尖', '骨吸収', '透過像']
+        },
+        assessment: {
+            diagnosis: ['診断', '疑い', '所見', '判断'],
+            condition: ['虫歯', '歯周病', '根尖病変', '咬合異常', '炎症', '感染', '壊死']
+        },
+        plan: {
+            treatment: ['治療', '処置', '施術'],
+            restorative: ['充填', 'CR', 'インレー', 'クラウン', 'ブリッジ'],
+            surgical: ['抜歯', '外科', '切開', '縫合'],
+            endodontic: ['根管治療', 'RCT', '根充', '感染根管治療'],
+            periodontal: ['スケーリング', 'SRP', '歯周治療', 'PMTC'],
+            other: ['予約', '経過観察', '再評価', 'メンテナンス']
+        }
     };
     
     const conversations = fileAnalysis.conversations || [];
+    console.log('🔍 SOAP変換開始:', { conversationCount: conversations.length });
     
-    // 患者の発言から主観的情報を抽出
+    // より詳細な発言分類
+    const categorizedContent = {
+        subjective: new Set(),
+        objective: new Set(),
+        assessment: new Set(),
+        plan: new Set()
+    };
+    
+    // 患者の発言から主観的情報を抽出（症状の記述を重視）
     const patientStatements = conversations.filter(c => c.role === '患者');
-    const subjectiveContent = [];
-    
     patientStatements.forEach(statement => {
-        keywords.subjective.forEach(keyword => {
-            if (statement.text.includes(keyword)) {
-                subjectiveContent.push(statement.text);
+        const text = statement.text;
+        let hasSubjectiveKeyword = false;
+        
+        // 痛みの種類を詳細に分類
+        Object.values(keywords.subjective).flat().forEach(keyword => {
+            if (text.includes(keyword)) {
+                categorizedContent.subjective.add(text);
+                hasSubjectiveKeyword = true;
             }
         });
+        
+        // 患者の発言は基本的に主観的情報として扱う（10文字以上の意味のある発言）
+        if (!hasSubjectiveKeyword && text.length > 10 && !text.includes('はい') && !text.includes('そうです')) {
+            categorizedContent.subjective.add(text);
+        }
     });
     
-    // 医師の発言から客観的情報、評価、計画を抽出
+    // 医師の発言から客観的所見、評価、計画を抽出
     const doctorStatements = conversations.filter(c => c.role === '医師');
-    const objectiveContent = [];
-    const assessmentContent = [];
-    const planContent = [];
-    
     doctorStatements.forEach(statement => {
-        keywords.objective.forEach(keyword => {
-            if (statement.text.includes(keyword)) {
-                objectiveContent.push(statement.text);
+        const text = statement.text;
+        
+        // 客観的所見（検査結果、観察事項）
+        Object.values(keywords.objective).flat().forEach(keyword => {
+            if (text.includes(keyword)) {
+                categorizedContent.objective.add(text);
             }
         });
         
-        keywords.assessment.forEach(keyword => {
-            if (statement.text.includes(keyword)) {
-                assessmentContent.push(statement.text);
+        // 評価・診断
+        Object.values(keywords.assessment).flat().forEach(keyword => {
+            if (text.includes(keyword)) {
+                categorizedContent.assessment.add(text);
             }
         });
         
-        keywords.plan.forEach(keyword => {
-            if (statement.text.includes(keyword)) {
-                planContent.push(statement.text);
+        // 治療計画
+        Object.values(keywords.plan).flat().forEach(keyword => {
+            if (text.includes(keyword)) {
+                categorizedContent.plan.add(text);
             }
         });
     });
     
-    // SOAP要素の生成
-    soap.S = subjectiveContent.length > 0 ? 
-        subjectiveContent.slice(0, 3).join(' ') : 
-        '特記すべき主観的症状なし';
+    // 自然な文章としてSOAP記録を生成
+    soap.S = generateSubjective(Array.from(categorizedContent.subjective));
+    soap.O = generateObjective(Array.from(categorizedContent.objective));
+    soap.A = generateAssessment(Array.from(categorizedContent.assessment));
+    soap.P = generatePlan(Array.from(categorizedContent.plan));
     
-    soap.O = objectiveContent.length > 0 ? 
-        objectiveContent.slice(0, 3).join(' ') : 
-        '特記すべき客観的所見なし';
+    const confidence = calculateConfidence(categorizedContent, conversations.length);
     
-    soap.A = assessmentContent.length > 0 ? 
-        assessmentContent.slice(0, 2).join(' ') : 
-        '追加診断が必要';
-    
-    soap.P = planContent.length > 0 ? 
-        planContent.slice(0, 3).join(' ') : 
-        '治療計画を策定中';
+    console.log('✅ SOAP変換完了:', { 
+        S_length: soap.S.length, 
+        O_length: soap.O.length, 
+        A_length: soap.A.length, 
+        P_length: soap.P.length,
+        confidence 
+    });
     
     return {
         ...soap,
-        confidence: 0.85,
+        confidence,
         key_points: [
             `総会話数: ${conversations.length}`,
             `患者発言: ${patientStatements.length}`,
-            `医師発言: ${doctorStatements.length}`
+            `医師発言: ${doctorStatements.length}`,
+            `抽出した主観的情報: ${categorizedContent.subjective.size}件`,
+            `抽出した客観的所見: ${categorizedContent.objective.size}件`
         ]
     };
+}
+
+// 主観的情報の文章生成
+function generateSubjective(statements) {
+    if (statements.length === 0) {
+        return '患者からの特記すべき主観的症状の訴えなし。';
+    }
+    
+    // 重複を除去し、意味のある内容を選択
+    const uniqueStatements = [...new Set(statements)].filter(s => s.length > 5);
+    const selected = uniqueStatements.slice(0, 3);
+    
+    return `患者の主訴: ${selected.join('。 ')}。`;
+}
+
+// 客観的所見の文章生成
+function generateObjective(statements) {
+    if (statements.length === 0) {
+        return '口腔内診査において特記すべき異常所見なし。';
+    }
+    
+    const uniqueStatements = [...new Set(statements)].filter(s => s.length > 5);
+    const selected = uniqueStatements.slice(0, 4);
+    
+    return `口腔内所見: ${selected.join('。 ')}。`;
+}
+
+// 評価・診断の文章生成
+function generateAssessment(statements) {
+    if (statements.length === 0) {
+        return '詳細な診査・診断が必要。';
+    }
+    
+    const uniqueStatements = [...new Set(statements)].filter(s => s.length > 5);
+    const selected = uniqueStatements.slice(0, 2);
+    
+    return `診断: ${selected.join('。 ')}。`;
+}
+
+// 治療計画の文章生成
+function generatePlan(statements) {
+    if (statements.length === 0) {
+        return '治療方針については次回診察時に決定。経過観察継続。';
+    }
+    
+    const uniqueStatements = [...new Set(statements)].filter(s => s.length > 5);
+    const selected = uniqueStatements.slice(0, 3);
+    
+    return `治療計画: ${selected.join('。 ')}。`;
+}
+
+// 信頼度計算
+function calculateConfidence(categorizedContent, totalConversations) {
+    let confidence = 0.3; // 基本値
+    
+    // 会話数による加算
+    if (totalConversations >= 10) confidence += 0.3;
+    else if (totalConversations >= 5) confidence += 0.2;
+    else confidence += 0.1;
+    
+    // 各SOAP要素の充実度による加算
+    if (categorizedContent.subjective.size >= 2) confidence += 0.1;
+    if (categorizedContent.objective.size >= 2) confidence += 0.1;
+    if (categorizedContent.assessment.size >= 1) confidence += 0.1;
+    if (categorizedContent.plan.size >= 1) confidence += 0.1;
+    
+    return Math.min(0.95, confidence); // 最大95%
 }
 
 // 品質分析
