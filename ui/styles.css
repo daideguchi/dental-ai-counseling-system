@@ -866,7 +866,7 @@ body {
 
 .metric-label {
     font-size: 0.875rem;
-    color: #ffffff !important;
+    color: #000000 !important;
     font-weight: 700;
 }
 
@@ -1247,7 +1247,7 @@ body {
 
 /* メトリクス値の視認性向上 */
 .metric-value {
-    color: #ffffff !important;
+    color: #000000 !important;
     font-weight: 800 !important;
     text-shadow: none !important;
 }
