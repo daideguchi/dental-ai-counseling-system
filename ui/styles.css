@@ -683,15 +683,15 @@ body {
 .process-info h4 {
     font-size: 1.125rem;
     font-weight: 600;
-    color: var(--gray-800);
+    color: #000000 !important;
     margin-bottom: var(--spacing-xs);
 }
 
 .process-info p {
-    color: var(--gray-800);
+    color: #000000 !important;
     font-size: 0.875rem;
     margin: 0;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .process-status {
@@ -1172,15 +1172,63 @@ body {
     }
 }
 
-/* ダークモード対応（将来の拡張用） */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --gray-50: #1e293b;
-        --gray-100: #334155;
-        --gray-200: #475569;
-        --gray-800: #f1f5f9;
-        --gray-900: #f8fafc;
-    }
+/* ダークモード対応を削除（視認性問題の原因） */
+
+/* 全テキスト要素の完全視認性確保 */
+.soap-item h4,
+.insights-column h4,
+.summary-info h4,
+.card h4,
+.process-info h4,
+.format-item h4,
+.analysis-content h4 {
+    color: #000000 !important;
+    font-weight: 700 !important;
+}
+
+.soap-item p,
+.insights-column p,
+.summary-info p,
+.card p,
+.process-info p,
+.format-item p,
+.analysis-content p {
+    color: #000000 !important;
+    font-weight: 500 !important;
+}
+
+.info-item label,
+.metric-label,
+.status-text,
+.progress-text {
+    color: #000000 !important;
+    font-weight: 600 !important;
+}
+
+/* カードボディ内の全テキスト */
+.card-body h4,
+.card-body p,
+.card-body span,
+.card-body div,
+.card-body li {
+    color: #000000 !important;
+}
+
+/* カードヘッダーは白文字を維持 */
+.card-header h2,
+.card-header p,
+.card-header span,
+.card-header * {
+    color: #ffffff !important;
+}
+
+/* 品質メトリクス（濃い背景）も白文字を維持 */
+.quality-metric h4,
+.quality-metric p,
+.quality-metric span,
+.quality-metric .metric-value,
+.quality-metric .metric-label {
+    color: #ffffff !important;
 }
 
 /* 印刷スタイル */
