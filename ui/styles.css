@@ -797,10 +797,11 @@ body {
 }
 
 .soap-content {
-    color: #374151;
+    color: var(--gray-900);
     line-height: 1.7;
     min-height: 80px;
     font-size: 0.95rem;
+    font-weight: 600;
 }
 
 .soap-item textarea {
@@ -865,8 +866,8 @@ body {
 
 .metric-label {
     font-size: 0.875rem;
-    color: var(--gray-600);
-    font-weight: 500;
+    color: var(--gray-900);
+    font-weight: 700;
 }
 
 .insights-section {
@@ -893,8 +894,9 @@ body {
 .insights-column li {
     padding: var(--spacing-sm) 0;
     border-bottom: 1px solid var(--gray-200);
-    color: var(--gray-700);
+    color: var(--gray-900);
     font-size: 0.875rem;
+    font-weight: 600;
 }
 
 .insights-column li:last-child {
@@ -1201,4 +1203,96 @@ body {
         margin: 0;
         padding: 0;
     }
+}
+
+/* ========================
+   視認性向上のための追加スタイル
+   ======================== */
+
+/* 情報表示項目の視認性向上 */
+.info-item {
+    margin-bottom: var(--spacing-md);
+}
+
+.info-item label {
+    font-weight: 700;
+    color: var(--gray-800);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--spacing-xs);
+    display: block;
+}
+
+.info-item span {
+    font-size: 1rem;
+    color: var(--gray-900);
+    font-weight: 700;
+    background: var(--gray-50);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    display: block;
+    border: 1px solid var(--gray-200);
+}
+
+/* SOAP表示の視認性向上 */
+.soap-display {
+    background: #ffffff !important;
+    color: var(--gray-900) !important;
+    border: 2px solid var(--gray-400) !important;
+    font-weight: 600 !important;
+    padding: var(--spacing-lg) !important;
+    line-height: 1.6 !important;
+}
+
+/* メトリクス値の視認性向上 */
+.metric-value {
+    color: var(--primary-color) !important;
+    font-weight: 800 !important;
+    text-shadow: none !important;
+}
+
+/* セッション情報の視認性向上 */
+.session-info {
+    background: #ffffff !important;
+    border: 2px solid var(--gray-300) !important;
+    padding: var(--spacing-lg) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+/* 分析リストの視認性向上 */
+#improvement-list li,
+#positive-list li {
+    color: var(--gray-900) !important;
+    font-weight: 600 !important;
+    padding: var(--spacing-sm) var(--spacing-md) !important;
+    background: var(--gray-50) !important;
+    margin-bottom: var(--spacing-sm) !important;
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--gray-200) !important;
+}
+
+/* 元データ表示の視認性向上 */
+.raw-data-display {
+    background: #ffffff !important;
+    border: 2px solid var(--gray-300) !important;
+    color: var(--gray-900) !important;
+}
+
+.raw-data-display h4 {
+    color: var(--gray-900) !important;
+    font-weight: 700 !important;
+}
+
+/* 全般的なテキストコントラスト向上 */
+.card-body p,
+.card-body span,
+.card-body div {
+    color: var(--gray-900) !important;
+}
+
+/* 品質メトリクスのラベル強化 */
+.quality-metric .metric-label {
+    color: #ffffff !important;
+    font-weight: 700 !important;
 }
