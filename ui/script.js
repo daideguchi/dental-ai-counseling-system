@@ -143,6 +143,21 @@ function bindEvents() {
         loadAppointmentsBtn.addEventListener('click', () => appointmentCsv.click());
         appointmentCsv.addEventListener('change', loadAppointments);
     }
+    
+    // オプション設定パネル
+    const openSettingsBtn = document.getElementById('open-settings-btn');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
+    const optionsPanel = document.getElementById('options-panel');
+    
+    if (openSettingsBtn) {
+        openSettingsBtn.addEventListener('click', openSettings);
+    }
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', closeSettings);
+    }
+    
+    // プロンプトエディタ関連
+    bindPromptEditorEvents();
 }
 
 // ファイル選択処理
@@ -2354,6 +2369,285 @@ function addToHistory(sessionInfo) {
     // この関数は保存時に自動的に呼ばれるため、
     // 実際の実装では必要に応じてUI更新などを行う
     console.log('📋 履歴に追加:', sessionInfo.patient_name);
+}
+
+// =============================================================================
+// プロンプト管理システム
+// =============================================================================
+
+const DEFAULT_PROMPTS = {
+    soap: `あなたは歯科医療記録の専門家です。以下の歯科診療会話をSOAP形式の診療記録に変換してください。
+
+【会話内容】
+{conversationText}
+
+【患者名】{patientName}
+【医師名】{doctorName}
+
+【歯科SOAP記録の変換指示】
+
+**S (Subjective - 主観的情報)**
+- 患者の主訴（chief complaint）
+- 症状の詳細（痛みの程度・性質、いつから等）
+- 既往歴・現病歴
+- 服薬状況、アレルギー情報
+
+**O (Objective - 客観的所見)**
+- 口腔内診察所見（歯式表記使用：例「#17 C4」「46番 Per」）
+- 歯周検査結果（PPD、BOP、動揺度等の数値）
+- レントゲン・画像診断所見
+- 口腔外診察所見（リンパ節、顎関節等）
+- バイタルサイン（必要時）
+
+**A (Assessment - 評価・診断)**
+- 歯科診断名（ICD-10対応）
+- 病態評価・重症度判定
+- 予後判断
+- リスク評価
+
+**P (Plan - 治療計画)**
+- 今回実施した処置内容
+- 今後の治療計画（段階的計画含む）
+- 次回予約・継続治療予定
+- 患者指導内容（口腔ケア指導、生活指導等）
+- 処方薬（薬剤名、用法用量）
+
+【歯科記録特有の注意事項】
+- 歯式表記：FDI方式（11-48）または日本式（1番-8番）を使用
+- 歯面表記：M（近心）、D（遠心）、B（頬側）、L（舌側）、O（咬合面）
+- 歯周状態：PPD（mm）、BOP（±）、動揺度（0-3度）で記録
+- 処置内容：保険点数コードも併記（可能な場合）
+- 不確実な診断には「疑い」を付記
+
+【品質管理】
+- 医療用語の正確性を最優先
+- 推測や解釈は避け、記録された事実のみを使用
+- 部位不明な場合は「部位不明」と明記
+- 数値データは正確に転記
+
+【出力形式】
+以下のJSON形式で出力してください：
+{
+  "S": "主観的情報の内容",
+  "O": "客観的所見の内容（歯式・数値含む）", 
+  "A": "診断・評価の内容",
+  "P": "治療計画・処置内容",
+  "dental_specifics": {
+    "affected_teeth": ["17番", "16番"],
+    "procedures_performed": ["充填", "スケーリング"],
+    "follow_up_needed": true
+  },
+  "confidence": 0.85,
+  "incomplete_info": ["PPD値不明", "レントゲン所見記載なし"]
+}`,
+    
+    identification: `以下の歯科診療会話から患者と医師の名前を特定してください。
+
+【会話内容】
+{conversationText}
+
+【特定指示】
+1. 患者の名前：「○○さん」「患者の○○」等から実名を抽出
+2. 医師の名前：「○○先生」「Dr.○○」「医師の○○」等から実名を抽出
+3. 名前が明記されていない場合は話者パターンから推定
+
+【出力形式】
+{
+  "patient_name": "患者の実名または推定名",
+  "doctor_name": "医師の実名または推定名", 
+  "confidence_patient": 0.85,
+  "confidence_doctor": 0.90,
+  "reasoning": "特定根拠の説明",
+  "method": "名前明記/パターン推定"
+}
+
+事実に基づいて正確に特定してください。`
+};
+
+// プロンプト管理クラス
+class PromptManager {
+    constructor() {
+        this.loadPromptsFromStorage();
+    }
+    
+    loadPromptsFromStorage() {
+        this.currentPrompts = {
+            soap: localStorage.getItem('custom_soap_prompt') || DEFAULT_PROMPTS.soap,
+            identification: localStorage.getItem('custom_identification_prompt') || DEFAULT_PROMPTS.identification
+        };
+    }
+    
+    savePrompt(type, content) {
+        this.currentPrompts[type] = content;
+        localStorage.setItem(`custom_${type}_prompt`, content);
+        console.log(`✅ ${type}プロンプト保存完了`);
+    }
+    
+    resetPrompt(type) {
+        this.currentPrompts[type] = DEFAULT_PROMPTS[type];
+        localStorage.removeItem(`custom_${type}_prompt`);
+        console.log(`🔄 ${type}プロンプトをデフォルトに戻しました`);
+    }
+    
+    getPrompt(type) {
+        return this.currentPrompts[type];
+    }
+    
+    isDefaultPrompt(type) {
+        return this.currentPrompts[type] === DEFAULT_PROMPTS[type];
+    }
+}
+
+const promptManager = new PromptManager();
+
+// オプション設定パネル管理
+function openSettings() {
+    const panel = document.getElementById('options-panel');
+    if (panel) {
+        // プロンプトエディタに現在のプロンプトをロード
+        loadCurrentPromptsToEditor();
+        panel.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeSettings() {
+    const panel = document.getElementById('options-panel');
+    if (panel) {
+        panel.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// プロンプトエディタイベントバインディング
+function bindPromptEditorEvents() {
+    // SOAP プロンプト関連
+    const previewSoapBtn = document.getElementById('preview-prompt');
+    const resetSoapBtn = document.getElementById('reset-prompt');
+    const saveSoapBtn = document.getElementById('save-prompt');
+    
+    if (previewSoapBtn) previewSoapBtn.addEventListener('click', () => previewPrompt('soap'));
+    if (resetSoapBtn) resetSoapBtn.addEventListener('click', () => resetPrompt('soap'));
+    if (saveSoapBtn) saveSoapBtn.addEventListener('click', () => savePrompt('soap'));
+    
+    // 患者・医師特定プロンプト関連
+    const previewIdentificationBtn = document.getElementById('preview-identification-prompt');
+    const resetIdentificationBtn = document.getElementById('reset-identification-prompt');
+    const saveIdentificationBtn = document.getElementById('save-identification-prompt');
+    
+    if (previewIdentificationBtn) previewIdentificationBtn.addEventListener('click', () => previewPrompt('identification'));
+    if (resetIdentificationBtn) resetIdentificationBtn.addEventListener('click', () => resetPrompt('identification'));
+    if (saveIdentificationBtn) saveIdentificationBtn.addEventListener('click', () => savePrompt('identification'));
+}
+
+// プロンプトエディタに現在のプロンプトをロード
+function loadCurrentPromptsToEditor() {
+    const soapEditor = document.getElementById('soap-prompt-editor');
+    const identificationEditor = document.getElementById('identification-prompt-editor');
+    
+    if (soapEditor) {
+        soapEditor.value = promptManager.getPrompt('soap');
+        updatePromptStatus('soap');
+    }
+    
+    if (identificationEditor) {
+        identificationEditor.value = promptManager.getPrompt('identification');
+        updatePromptStatus('identification');
+    }
+}
+
+// プロンプト保存
+function savePrompt(type) {
+    const editorId = type === 'soap' ? 'soap-prompt-editor' : 'identification-prompt-editor';
+    const editor = document.getElementById(editorId);
+    
+    if (editor) {
+        const content = editor.value.trim();
+        if (content) {
+            promptManager.savePrompt(type, content);
+            updatePromptStatus(type, 'success', 'プロンプトが保存されました');
+            
+            // Gemini統合クラスに変更を反映
+            if (window.geminiIntegration && type === 'soap') {
+                window.geminiIntegration.customSOAPPrompt = content;
+            }
+            if (window.geminiIntegration && type === 'identification') {
+                window.geminiIntegration.customIdentificationPrompt = content;
+            }
+        } else {
+            updatePromptStatus(type, 'error', 'プロンプトが空です');
+        }
+    }
+}
+
+// プロンプトリセット
+function resetPrompt(type) {
+    const editorId = type === 'soap' ? 'soap-prompt-editor' : 'identification-prompt-editor';
+    const editor = document.getElementById(editorId);
+    
+    if (editor) {
+        promptManager.resetPrompt(type);
+        editor.value = promptManager.getPrompt(type);
+        updatePromptStatus(type, 'success', 'デフォルトプロンプトに戻しました');
+        
+        // Gemini統合クラスから設定を削除
+        if (window.geminiIntegration && type === 'soap') {
+            delete window.geminiIntegration.customSOAPPrompt;
+        }
+        if (window.geminiIntegration && type === 'identification') {
+            delete window.geminiIntegration.customIdentificationPrompt;
+        }
+    }
+}
+
+// プロンプトプレビュー
+function previewPrompt(type) {
+    const editorId = type === 'soap' ? 'soap-prompt-editor' : 'identification-prompt-editor';
+    const editor = document.getElementById(editorId);
+    
+    if (editor) {
+        const content = editor.value;
+        const previewWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
+        previewWindow.document.write(`
+            <html>
+                <head>
+                    <title>${type === 'soap' ? 'SOAP変換' : '患者・医師特定'}プロンプト プレビュー</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+                        pre { background: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap; }
+                        h1 { color: #333; }
+                    </style>
+                </head>
+                <body>
+                    <h1>${type === 'soap' ? '歯科専門SOAP変換' : '患者・医師特定'}プロンプト</h1>
+                    <pre>${content}</pre>
+                </body>
+            </html>
+        `);
+        previewWindow.document.close();
+    }
+}
+
+// プロンプトステータス更新
+function updatePromptStatus(type, status = 'default', message = '') {
+    const statusId = type === 'soap' ? 'prompt-status' : 'identification-prompt-status';
+    const statusElement = document.getElementById(statusId);
+    
+    if (statusElement) {
+        let statusText = message;
+        if (!message) {
+            if (promptManager.isDefaultPrompt(type)) {
+                statusText = 'デフォルトプロンプト使用中';
+                status = 'default';
+            } else {
+                statusText = 'カスタムプロンプト使用中';
+                status = 'warning';
+            }
+        }
+        
+        statusElement.textContent = statusText;
+        statusElement.className = `status-text ${status}`;
+    }
 }
 
 // 予約データ読み込み（オプション機能）

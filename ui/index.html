@@ -402,6 +402,9 @@ Dentist: どのあたりが特に気になりますか？</code></pre>
                     <button class="secondary-btn" id="reset-app-btn">
                         <i class="fas fa-redo"></i> 新しい処理
                     </button>
+                    <button class="info-btn" id="open-settings-btn">
+                        <i class="fas fa-cog"></i> 設定
+                    </button>
                 </div>
 
                 <!-- データベース保存仕様（視認性改善版） -->
@@ -590,13 +593,63 @@ created_at, updated_at</code></pre>
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-cog"></i> オプション設定</h3>
+                    <button class="close-btn" id="close-settings-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
                 <div class="options-content">
-                    <div class="option-item">
-                        <label>予約データ連携</label>
-                        <input type="file" id="appointment-csv" accept=".csv">
-                        <button id="load-appointments" class="secondary-btn">読み込み</button>
-                        <div id="appointment-status" class="status-text">未設定</div>
+                    <!-- AIプロンプト編集セクション -->
+                    <div class="option-section">
+                        <h4><i class="fas fa-brain"></i> AI プロンプト設定</h4>
+                        
+                        <div class="option-item">
+                            <label for="soap-prompt-editor">歯科専門SOAP変換プロンプト</label>
+                            <div class="prompt-editor-container">
+                                <textarea id="soap-prompt-editor" class="prompt-editor" rows="15" placeholder="プロンプトを編集..."></textarea>
+                                <div class="prompt-actions">
+                                    <button id="preview-prompt" class="info-btn">
+                                        <i class="fas fa-eye"></i> プレビュー
+                                    </button>
+                                    <button id="reset-prompt" class="secondary-btn">
+                                        <i class="fas fa-undo"></i> デフォルトに戻す
+                                    </button>
+                                    <button id="save-prompt" class="primary-btn">
+                                        <i class="fas fa-save"></i> 保存
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="prompt-status" class="status-text">デフォルトプロンプト使用中</div>
+                        </div>
+
+                        <div class="option-item">
+                            <label for="identification-prompt-editor">患者・医師特定プロンプト</label>
+                            <div class="prompt-editor-container">
+                                <textarea id="identification-prompt-editor" class="prompt-editor" rows="8" placeholder="プロンプトを編集..."></textarea>
+                                <div class="prompt-actions">
+                                    <button id="preview-identification-prompt" class="info-btn">
+                                        <i class="fas fa-eye"></i> プレビュー
+                                    </button>
+                                    <button id="reset-identification-prompt" class="secondary-btn">
+                                        <i class="fas fa-undo"></i> デフォルトに戻す
+                                    </button>
+                                    <button id="save-identification-prompt" class="primary-btn">
+                                        <i class="fas fa-save"></i> 保存
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="identification-prompt-status" class="status-text">デフォルトプロンプト使用中</div>
+                        </div>
+                    </div>
+
+                    <!-- 既存の設定項目 -->
+                    <div class="option-section">
+                        <h4><i class="fas fa-calendar"></i> データ連携設定</h4>
+                        <div class="option-item">
+                            <label>予約データ連携</label>
+                            <input type="file" id="appointment-csv" accept=".csv">
+                            <button id="load-appointments" class="secondary-btn">読み込み</button>
+                            <div id="appointment-status" class="status-text">未設定</div>
+                        </div>
                     </div>
                 </div>
             </div>

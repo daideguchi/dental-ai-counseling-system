@@ -2062,3 +2062,137 @@ body {
     color: #ffffff !important;
     font-weight: 700 !important;
 }
+
+/* オプション設定パネル */
+.options-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    overflow-y: auto;
+    padding: var(--spacing-xl);
+    box-sizing: border-box;
+}
+
+.options-panel .card {
+    max-width: 900px;
+    margin: 0 auto;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* オプションコンテンツ */
+.options-content {
+    padding: var(--spacing-lg);
+}
+
+/* オプションセクション */
+.option-section {
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.option-section:last-child {
+    border-bottom: none;
+}
+
+.option-section h4 {
+    margin: 0 0 var(--spacing-lg) 0;
+    color: var(--gray-800);
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* オプションアイテム */
+.option-item {
+    margin-bottom: var(--spacing-lg);
+}
+
+.option-item label {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+/* プロンプトエディタ */
+.prompt-editor-container {
+    margin-top: var(--spacing-md);
+}
+
+.prompt-editor {
+    width: 100%;
+    min-height: 200px;
+    padding: var(--spacing-md);
+    border: 2px solid var(--gray-300);
+    border-radius: var(--radius-md);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    background: #f8fafc;
+    color: var(--gray-800);
+    transition: all 0.3s ease;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.prompt-editor:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+
+.prompt-editor:hover {
+    border-color: var(--gray-400);
+}
+
+/* プロンプトアクション */
+.prompt-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.prompt-actions button {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.85rem;
+    border-radius: var(--radius-sm);
+}
+
+/* ステータステキスト */
+.status-text {
+    margin-top: var(--spacing-sm);
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--gray-100);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--gray-400);
+}
+
+.status-text.success {
+    color: #16a34a;
+    background: #f0fdf4;
+    border-left-color: #16a34a;
+}
+
+.status-text.warning {
+    color: #d97706;
+    background: #fffbeb;
+    border-left-color: #d97706;
+}
+
+.status-text.error {
+    color: #dc2626;
+    background: #fef2f2;
+    border-left-color: #dc2626;
+}
