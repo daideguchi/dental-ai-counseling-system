@@ -336,15 +336,21 @@ body {
 .upload-divider {
     display: flex;
     align-items: center;
-    color: var(--gray-800);
-    font-weight: 600;
-    font-size: 0.875rem;
+    color: #000000 !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem;
     padding: var(--spacing-md);
     background: var(--gray-100);
     border-radius: 50%;
     width: 60px;
     height: 60px;
     justify-content: center;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+}
+
+.upload-divider span {
+    color: #000000 !important;
+    font-weight: 700 !important;
 }
 
 /* ファイルリスト */
@@ -372,12 +378,25 @@ body {
 
 /* ボタン */
 .action-buttons {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-xl);
     display: flex;
-    gap: var(--spacing-md);
+    gap: var(--spacing-lg);
     justify-content: center;
+    align-items: center;
     border-top: 1px solid var(--gray-200);
     background: #ffffff;
+}
+
+/* AI処理ボタンを中央に配置し、より目立たせる */
+.action-buttons #process-files {
+    order: 1;
+    flex: 0 0 auto;
+    margin: 0 var(--spacing-md);
+}
+
+.action-buttons #format-info-btn {
+    order: 2;
+    transition: all 0.3s ease;
 }
 
 .primary-btn {
@@ -389,7 +408,7 @@ body {
     font-weight: 800;
     font-size: 0.95rem;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -401,6 +420,7 @@ body {
 .primary-btn:hover:not(:disabled) {
     background: #1d4ed8; /* 濃いめホバーで視認性UP */
     box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
 }
 
 .primary-btn:disabled {
@@ -408,6 +428,76 @@ body {
     cursor: not-allowed;
     box-shadow: none;
     opacity: 0.6;
+}
+
+/* AI処理ボタン専用の大きな目立つスタイル */
+#process-files {
+    padding: 18px 32px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    box-shadow: 0 8px 25px rgba(37,99,235,0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+#process-files:hover:not(:disabled) {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    box-shadow: 0 12px 30px rgba(37,99,235,0.4);
+    transform: translateY(-2px);
+}
+
+#process-files:not(:disabled) {
+    animation: pulseGlow 2s infinite;
+}
+
+#process-files::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+#process-files:hover:not(:disabled)::before {
+    left: 100%;
+}
+
+@keyframes pulseGlow {
+    0% { box-shadow: 0 8px 25px rgba(37,99,235,0.3); }
+    50% { box-shadow: 0 8px 25px rgba(37,99,235,0.5), 0 0 20px rgba(37,99,235,0.3); }
+    100% { box-shadow: 0 8px 25px rgba(37,99,235,0.3); }
+}
+
+/* ファイル選択後のAI処理ボタン強調スタイル */
+#process-files.file-ready {
+    animation: readyPulse 1.5s infinite;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 10px 30px rgba(5,150,105,0.4);
+}
+
+#process-files.file-ready:hover:not(:disabled) {
+    background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+    box-shadow: 0 12px 35px rgba(5,150,105,0.5);
+    transform: translateY(-3px);
+}
+
+@keyframes readyPulse {
+    0% { 
+        box-shadow: 0 10px 30px rgba(5,150,105,0.4);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 10px 30px rgba(5,150,105,0.6), 0 0 25px rgba(5,150,105,0.4);
+        transform: scale(1.02);
+    }
+    100% { 
+        box-shadow: 0 10px 30px rgba(5,150,105,0.4);
+        transform: scale(1);
+    }
 }
 
 .secondary-btn {
@@ -440,7 +530,7 @@ body {
     border-radius: var(--radius-md);
     font-weight: 700;
     cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -452,6 +542,20 @@ body {
     background: #0369a1; /* もう一段濃く */
     transform: translateY(-1px);
     box-shadow: 0 8px 18px rgba(3,105,161,0.28);
+}
+
+/* ファイル添付後の情報ボタン状態 */
+.info-btn[style*="opacity: 0.4"] {
+    cursor: not-allowed !important;
+    background: #f1f5f9 !important;
+    color: #94a3b8 !important;
+    box-shadow: none !important;
+}
+
+.info-btn[style*="opacity: 0.4"]:hover {
+    transform: none !important;
+    background: #f1f5f9 !important;
+    box-shadow: none !important;
 }
 
 /* フォーマット情報パネル */
@@ -977,6 +1081,254 @@ body {
     text-align: left;
 }
 
+/* 保存成功レイアウト改善 */
+.save-success-layout {
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.save-success-header {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: var(--radius-lg);
+    border: 2px solid #0ea5e9;
+}
+
+.save-success-header h3 {
+    color: #0c4a6e !important;
+    margin-bottom: var(--spacing-sm);
+    font-size: 1.5rem;
+}
+
+.save-success-header p {
+    color: #075985 !important;
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.what-saved-section, .how-saved-section, .save-metadata, .data-structure-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.what-saved-section h4, .how-saved-section h4, .save-metadata h4, .data-structure-section h4 {
+    color: #000000 !important;
+    margin-bottom: var(--spacing-lg);
+    font-size: 1.25rem;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: var(--spacing-sm);
+}
+
+.saved-items {
+    display: grid;
+    gap: var(--spacing-lg);
+}
+
+.saved-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-md);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.item-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.item-content h5 {
+    color: #000000 !important;
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.item-content p {
+    color: #4b5563 !important;
+    margin: 0 0 var(--spacing-xs) 0;
+    line-height: 1.5;
+}
+
+.storage-visual {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.storage-step {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    background: #f8fafc;
+    border-radius: var(--radius-md);
+    border-left: 4px solid #3b82f6;
+}
+
+.step-number {
+    background: #3b82f6;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.step-content h5 {
+    color: #000000 !important;
+    margin: 0 0 var(--spacing-xs) 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.step-content p {
+    color: #6b7280 !important;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-md);
+}
+
+.metadata-item label {
+    color: #6b7280 !important;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metadata-item span {
+    color: #000000 !important;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.structure-toggle {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    color: #374151 !important;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    width: 100%;
+    text-align: left;
+}
+
+.structure-toggle:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+.structure-details {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-lg);
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-md);
+}
+
+.structure-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.structure-item:last-child {
+    border-bottom: none;
+}
+
+.structure-item code {
+    background: #1f2937;
+    color: #f9fafb;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.875rem;
+    min-width: 120px;
+}
+
+.structure-item span {
+    color: #4b5563 !important;
+    font-size: 0.9rem;
+}
+
+.jsonl-example {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid #e5e7eb;
+}
+
+.jsonl-example h6 {
+    color: #000000 !important;
+    margin-bottom: var(--spacing-md);
+    font-size: 1rem;
+}
+
+.jsonl-example pre {
+    background: #1f2937;
+    color: #f9fafb;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.save-summary-actions {
+    text-align: center;
+    padding: var(--spacing-lg);
+    background: #fffbeb;
+    border: 1px solid #fbbf24;
+    border-radius: var(--radius-md);
+}
+
+.action-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    color: #92400e !important;
+}
+
+.action-note i {
+    color: #f59e0b;
+    font-size: 1.1rem;
+}
+
+.action-note span {
+    color: #92400e !important;
+    font-weight: 500;
+}
+
 /* サイドバー */
 .sidebar {
     position: fixed;
@@ -1402,6 +1754,167 @@ body {
     align-items: center;
     gap: var(--spacing-sm);
     font-size: 0.875rem;
+}
+
+/* JSONL保存成功画面のスタイル */
+.save-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--spacing-lg);
+    margin: var(--spacing-lg) 0;
+}
+
+.save-info-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+}
+
+.save-info-card h5 {
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--primary-color);
+    font-size: 1.125rem;
+    font-weight: 600;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: var(--spacing-sm);
+}
+
+.save-info-card ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.save-info-card li {
+    padding: var(--spacing-xs) 0;
+    border-bottom: 1px solid var(--gray-200);
+    color: var(--gray-800);
+    font-size: 0.875rem;
+}
+
+.save-info-card li:last-child {
+    border-bottom: none;
+}
+
+.save-info-card strong {
+    color: var(--gray-900);
+    font-weight: 600;
+}
+
+/* 妥当性検証結果の表示 */
+.validation.valid {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.validation.invalid {
+    color: var(--error-color);
+    font-weight: 600;
+}
+
+/* JSONL構造プレビュー */
+.jsonl-preview {
+    margin-top: var(--spacing-xl);
+    background: var(--gray-900);
+    color: var(--gray-100);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+}
+
+.jsonl-preview h5 {
+    margin: 0 0 var(--spacing-md) 0;
+    color: #ffffff;
+    font-size: 1.125rem;
+}
+
+.jsonl-structure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.jsonl-section {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-sm);
+    border-left: 4px solid var(--primary-color);
+}
+
+.jsonl-key {
+    font-family: monospace;
+    font-weight: 600;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+}
+
+/* AI内容検証フロー */
+.validation-flow {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.validation-step {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--gray-100);
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--info-color);
+}
+
+.validation-icon {
+    font-size: 1.25rem;
+    width: 32px;
+    text-align: center;
+}
+
+.validation-text {
+    color: var(--gray-800);
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+/* JSONL詳細構造表示 */
+.jsonl-structure-detailed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.jsonl-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    background: var(--gray-100);
+    border-radius: var(--radius-sm);
+    border-left: 4px solid var(--success-color);
+}
+
+.jsonl-field .jsonl-key {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--primary-color);
+    background: var(--gray-200);
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    align-self: flex-start;
+}
+
+.jsonl-desc {
+    color: var(--gray-700);
+    font-size: 0.875rem;
+    font-weight: 500;
 }
 
 /* 印刷スタイル */

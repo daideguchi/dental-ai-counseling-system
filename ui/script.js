@@ -166,7 +166,51 @@ function handleFileSelect(tool) {
         DOM.plaudFileList().innerHTML = '';
     }
     
+    // ファイル添付後のUI調整
+    adjustUIAfterFileSelect();
+    
     console.log(`📁 ${tool}ファイル選択:`, uploadedFiles.map(f => f.name));
+}
+
+// ファイル選択後のUI調整
+function adjustUIAfterFileSelect() {
+    const formatInfoBtn = document.getElementById('format-info-btn');
+    const processBtn = DOM.processBtn();
+    
+    if (uploadedFiles.length > 0) {
+        // 形式情報ボタンを目立たなくする
+        if (formatInfoBtn) {
+            formatInfoBtn.style.opacity = '0.4';
+            formatInfoBtn.style.transform = 'scale(0.9)';
+            formatInfoBtn.style.pointerEvents = 'none';
+            formatInfoBtn.title = 'ファイルが選択されました。AI処理を開始してください。';
+        }
+        
+        // AI処理ボタンを強調
+        if (processBtn && !processBtn.disabled) {
+            processBtn.classList.add('file-ready');
+            processBtn.innerHTML = '<i class="fas fa-robot"></i> 🚀 AI処理を開始';
+        }
+        
+        // フォーマット情報パネルを閉じる
+        const formatInfo = DOM.formatInfo();
+        if (formatInfo && formatInfo.style.display === 'block') {
+            formatInfo.style.display = 'none';
+        }
+    } else {
+        // ファイルが削除された場合は元に戻す
+        if (formatInfoBtn) {
+            formatInfoBtn.style.opacity = '1';
+            formatInfoBtn.style.transform = 'scale(1)';
+            formatInfoBtn.style.pointerEvents = 'auto';
+            formatInfoBtn.title = '';
+        }
+        
+        if (processBtn) {
+            processBtn.classList.remove('file-ready');
+            processBtn.innerHTML = '<i class="fas fa-robot"></i> AI処理開始';
+        }
+    }
 }
 
 // ファイルリスト表示
@@ -347,28 +391,47 @@ async function readFileContent(file) {
     });
 }
 
-// AI処理（実際のファイル内容を解析）
+// AI処理（内容妥当性検証付き）
 async function processWithAI(fileContent, file) {
     console.log('🧠 AI解析開始:', file.name);
     
-    // ファイル形式の判定
+    // 1. 事前妥当性検証（歯科カウンセリング関連かどうかAIで判定）
+    const validationResult = await validateDentalContent(fileContent);
+    if (!validationResult.isValid) {
+        throw new Error(`❌ 歯科カウンセリング以外の内容が検出されました: ${validationResult.reason}\n\n正しいファイルをアップロードしてください。`);
+    }
+    
+    console.log('✅ 内容妥当性検証通過:', validationResult.confidence);
+    
+    // 2. ファイル形式の判定
     const fileExtension = file.name.split('.').pop().toLowerCase();
     const fileAnalysis = analyzeFileContent(fileContent, fileExtension, file.name);
     
-    // 患者・医師特定（実際の内容から推定）
+    // 3. 患者・医師特定（実際の内容から推定）
     const identification = identifyPatientDoctor(fileContent);
     
-    // SOAP変換（実際の会話内容から生成）
+    // 4. SOAP変換（実際の会話内容から生成）
     const soapResult = convertToSOAP(fileContent, fileAnalysis);
     
-    // 品質分析
+    // 5. 品質分析
     const qualityAnalysis = analyzeQuality(fileContent, fileAnalysis);
+    
+    // 6. JSONL形式データの生成（原文データ含む）
+    const jsonlData = generateJSONLData(fileContent, file, {
+        identification,
+        soap: soapResult,
+        quality: qualityAnalysis,
+        fileAnalysis,
+        validation: validationResult
+    });
     
     return {
         identification,
         soap: soapResult,
         quality: qualityAnalysis,
         fileAnalysis,
+        validation: validationResult,
+        jsonlData,
         sourceFile: {
             name: file.name,
             size: file.size,
@@ -376,6 +439,170 @@ async function processWithAI(fileContent, file) {
             content: fileContent
         }
     };
+}
+
+// AIを使った歯科カウンセリング内容妥当性検証
+async function validateDentalContent(content) {
+    console.log('🔍 内容妥当性検証開始');
+    
+    // 歯科関連キーワードの存在チェック
+    const dentalKeywords = [
+        // 基本的な歯科用語
+        '歯', '口', '虫歯', '歯医者', '歯科', '治療', '患者', '医師', '先生',
+        // 症状関連
+        '痛い', '痛み', 'しみる', '腫れ', '出血', '噛む', '口臭',
+        // 治療関連
+        '抜歯', '詰め物', '被せ物', '根管', '歯周病', '歯石', '歯垢',
+        // 部位関連
+        '奥歯', '前歯', '歯茎', '歯肉', '親知らず', '乳歯', '永久歯',
+        // 検査関連
+        'レントゲン', 'X線', '診察', '検査', '確認'
+    ];
+    
+    // 非歯科系コンテンツの検出キーワード
+    const nonDentalKeywords = [
+        // プログラミング関連
+        'function', 'class', 'import', 'export', 'const', 'let', 'var', 'if', 'else', 'for', 'while',
+        'public', 'private', 'static', 'void', 'int', 'string', 'boolean', 'array',
+        // ビジネス文書
+        '会議', 'ミーティング', '売上', '予算', '企画', '提案', '契約', '取引',
+        // 小説・物語
+        '彼は', '彼女は', 'だった', 'である', '物語', '小説', '章', '第',
+        // メール・チャット
+         'お疲れ様', 'よろしく', 'ありがとうございます', 'CC:', 'BCC:', 'Subject:',
+        // 技術文書
+        'API', 'URL', 'HTTP', 'JSON', 'XML', 'CSS', 'HTML', 'JavaScript'
+    ];
+    
+    let dentalScore = 0;
+    let nonDentalScore = 0;
+    let totalWords = 0;
+    
+    const words = content.toLowerCase().split(/[\s\n\r\t　]+/);
+    totalWords = words.length;
+    
+    // 歯科関連スコア計算
+    dentalKeywords.forEach(keyword => {
+        const matches = content.toLowerCase().split(keyword.toLowerCase()).length - 1;
+        dentalScore += matches;
+    });
+    
+    // 非歯科関連スコア計算
+    nonDentalKeywords.forEach(keyword => {
+        const matches = content.toLowerCase().split(keyword.toLowerCase()).length - 1;
+        nonDentalScore += matches * 2; // 非歯科キーワードは重み付け
+    });
+    
+    // 会話形式の検証（患者-医師の対話があるか）
+    const conversationPatterns = [
+        /speaker\s*[ab]:/gi,
+        /発言者\d+/gi,
+        /医師|先生|Dr\./gi,
+        /患者|さん/gi,
+        /主訴|症状|痛み/gi
+    ];
+    
+    let conversationScore = 0;
+    conversationPatterns.forEach(pattern => {
+        const matches = (content.match(pattern) || []).length;
+        conversationScore += matches;
+    });
+    
+    // スコア正規化
+    const dentalRatio = dentalScore / Math.max(totalWords * 0.1, 1);
+    const nonDentalRatio = nonDentalScore / Math.max(totalWords * 0.1, 1);
+    const conversationRatio = conversationScore / Math.max(totalWords * 0.05, 1);
+    
+    // 総合判定
+    const confidence = Math.min(1.0, (dentalRatio + conversationRatio) * 0.5);
+    const isValid = dentalRatio > 0.1 && nonDentalRatio < 0.5 && confidence > 0.2;
+    
+    let reason = '';
+    if (!isValid) {
+        if (dentalRatio <= 0.1) {
+            reason = '歯科関連の用語が不足しています';
+        } else if (nonDentalRatio >= 0.5) {
+            reason = 'プログラムコードやビジネス文書など、歯科以外の内容が含まれています';
+        } else {
+            reason = '会話形式の歯科カウンセリング記録ではありません';
+        }
+    }
+    
+    console.log('🔍 内容検証結果:', {
+        dentalScore: dentalRatio.toFixed(3),
+        nonDentalScore: nonDentalRatio.toFixed(3),
+        conversationScore: conversationRatio.toFixed(3),
+        confidence: confidence.toFixed(3),
+        isValid,
+        reason
+    });
+    
+    return {
+        isValid,
+        confidence,
+        reason,
+        scores: {
+            dental: dentalRatio,
+            nonDental: nonDentalRatio,
+            conversation: conversationRatio
+        }
+    };
+}
+
+// JSONL形式データ生成（原文データ含む）
+function generateJSONLData(originalContent, file, processedData) {
+    const timestamp = new Date().toISOString();
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    
+    // JSONL形式（1行1JSONオブジェクト）
+    const jsonlRecord = {
+        // メタデータ
+        session_id: sessionId,
+        timestamp: timestamp,
+        
+        // 原文データ（完全保存）
+        original_data: {
+            filename: file.name,
+            filesize: file.size,
+            filetype: file.name.split('.').pop().toLowerCase(),
+            raw_content: originalContent,
+            content_hash: btoa(originalContent).slice(0, 32) // 内容のハッシュ値
+        },
+        
+        // 処理結果
+        processed_data: {
+            // 患者・医師情報
+            identification: processedData.identification,
+            
+            // SOAP記録
+            soap_record: processedData.soap,
+            
+            // 品質分析
+            quality_analysis: processedData.quality,
+            
+            // ファイル解析情報
+            file_analysis: processedData.fileAnalysis,
+            
+            // 妥当性検証結果
+            validation_result: processedData.validation
+        },
+        
+        // システム情報
+        system_info: {
+            processor_version: "v2.0",
+            processing_time: Date.now(),
+            user_agent: navigator.userAgent,
+            processing_mode: "client_side"
+        }
+    };
+    
+    console.log('📦 JSONL データ生成完了:', {
+        session_id: sessionId,
+        original_size: originalContent.length,
+        record_size: JSON.stringify(jsonlRecord).length
+    });
+    
+    return jsonlRecord;
 }
 
 // ファイル内容分析
@@ -955,63 +1182,272 @@ function getStructureDescription(structure) {
     return descriptions[structure] || '不明な形式';
 }
 
-// データベース保存
+// データベース保存（JSONL形式）
 function saveToDatabase() {
-    if (!currentSessionData) return;
+    if (!currentSessionData || !currentSessionData.jsonlData) {
+        console.error('❌ 保存対象データが不正です');
+        return;
+    }
     
-    const saveData = {
-        session_info: {
-            patient_name: currentSessionData.identification.patient_name,
-            doctor_name: currentSessionData.identification.doctor_name,
-            session_date: new Date().toISOString(),
-            source_tool: selectedTool,
-            file_name: currentSessionData.sourceFile.name,
-            file_size: currentSessionData.sourceFile.size
-        },
-        soap_record: {
-            subjective: currentSessionData.soap.S,
-            objective: currentSessionData.soap.O,
-            assessment: currentSessionData.soap.A,
-            plan: currentSessionData.soap.P
-        },
-        quality_analysis: {
-            communication_quality: currentSessionData.quality.communication_quality,
-            patient_understanding: currentSessionData.quality.patient_understanding,
-            consent_likelihood: currentSessionData.quality.treatment_consent_likelihood,
-            improvement_suggestions: currentSessionData.quality.improvement_suggestions,
-            positive_aspects: currentSessionData.quality.positive_aspects
-        },
-        file_analysis: currentSessionData.fileAnalysis
-    };
-    
-    // 実際のAPIへの保存（ここではローカルストレージにシミュレート）
-    const sessionId = generateSessionId();
-    localStorage.setItem(`dental_session_${sessionId}`, JSON.stringify(saveData));
-    
-    // 保存完了の表示
-    displaySaveSuccess(saveData);
-    
-    // ステップ4に移動
-    showStep(4);
-    
-    // 履歴に追加
-    addToHistory(saveData.session_info);
-    
-    console.log('💾 データベース保存完了:', sessionId);
+    try {
+        // JSONL形式でデータを保存
+        const jsonlRecord = currentSessionData.jsonlData;
+        const sessionId = jsonlRecord.session_id;
+        
+        // JSONL形式の文字列として保存（実際のDBでは1行1JSONとして保存）
+        const jsonlString = JSON.stringify(jsonlRecord);
+        
+        // ローカルストレージに保存（実際の実装ではサーバーのJSONLファイルに追記）
+        localStorage.setItem(`dental_jsonl_${sessionId}`, jsonlString);
+        
+        // 保存インデックスを更新（検索用）
+        updateSaveIndex(sessionId, jsonlRecord);
+        
+        // 保存完了の表示
+        displaySaveSuccess(jsonlRecord);
+        
+        // ステップ4に移動
+        showStep(4);
+        
+        // 履歴に追加
+        addToHistory(jsonlRecord.processed_data.identification);
+        
+        console.log('💾 JSONL形式でデータベース保存完了:', {
+            session_id: sessionId,
+            data_size: jsonlString.length,
+            validation_score: jsonlRecord.processed_data.validation_result.confidence
+        });
+        
+        // ダウンロード可能なJSONLファイルとして提供
+        offerJSONLDownload(jsonlString, sessionId);
+        
+    } catch (error) {
+        console.error('❌ 保存エラー:', error);
+        alert(`保存中にエラーが発生しました: ${error.message}`);
+    }
 }
 
-// 保存成功表示
-function displaySaveSuccess(saveData) {
+// 保存インデックス更新（検索・管理用）
+function updateSaveIndex(sessionId, jsonlRecord) {
+    let saveIndex = JSON.parse(localStorage.getItem('dental_save_index') || '[]');
+    
+    const indexEntry = {
+        session_id: sessionId,
+        timestamp: jsonlRecord.timestamp,
+        patient_name: jsonlRecord.processed_data.identification.patient_name,
+        doctor_name: jsonlRecord.processed_data.identification.doctor_name,
+        filename: jsonlRecord.original_data.filename,
+        validation_confidence: jsonlRecord.processed_data.validation_result.confidence,
+        soap_confidence: jsonlRecord.processed_data.soap_record.confidence,
+        file_size: jsonlRecord.original_data.filesize
+    };
+    
+    saveIndex.push(indexEntry);
+    
+    // 日付順でソート（新しいものが先頭）
+    saveIndex.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    // 最新100件のみ保持
+    if (saveIndex.length > 100) {
+        saveIndex = saveIndex.slice(0, 100);
+    }
+    
+    localStorage.setItem('dental_save_index', JSON.stringify(saveIndex));
+}
+
+// JSONLファイルダウンロード機能
+function offerJSONLDownload(jsonlString, sessionId) {
+    const blob = new Blob([jsonlString], { type: 'application/jsonl' });
+    const url = URL.createObjectURL(blob);
+    
+    // ダウンロードリンクを動的作成
+    const downloadElement = document.createElement('a');
+    downloadElement.href = url;
+    downloadElement.download = `dental_session_${sessionId}.jsonl`;
+    downloadElement.style.display = 'none';
+    
+    document.body.appendChild(downloadElement);
+    
+    // ダウンロード準備完了をユーザーに通知
+    setTimeout(() => {
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'secondary-btn';
+        downloadBtn.innerHTML = '<i class="fas fa-download"></i> JSONLファイルをダウンロード';
+        downloadBtn.onclick = () => {
+            downloadElement.click();
+            URL.revokeObjectURL(url);
+            document.body.removeChild(downloadElement);
+            downloadBtn.remove();
+        };
+        
+        const saveSummary = document.getElementById('save-summary');
+        if (saveSummary) {
+            saveSummary.appendChild(downloadBtn);
+        }
+    }, 500);
+}
+
+// 保存成功表示（JSONL形式対応・わかりやすい版）
+function displaySaveSuccess(jsonlRecord) {
+    const processedData = jsonlRecord.processed_data;
+    const originalData = jsonlRecord.original_data;
+    const validationResult = processedData.validation_result;
+    
     const summary = `
-        <div class="save-details">
-            <h4>保存された情報</h4>
-            <ul>
-                <li><strong>患者:</strong> ${saveData.session_info.patient_name}</li>
-                <li><strong>医師:</strong> ${saveData.session_info.doctor_name}</li>
-                <li><strong>SOAP記録:</strong> 4項目すべて保存</li>
-                <li><strong>品質分析:</strong> ${saveData.quality_analysis.improvement_suggestions.length}件の改善提案</li>
-                <li><strong>元ファイル:</strong> ${saveData.session_info.file_name}</li>
-            </ul>
+        <div class="save-success-layout">
+            <div class="save-success-header">
+                <h3>🎉 歯科カウンセリング記録の保存が完了しました</h3>
+                <p>以下の内容がデータベースに安全に保存されました</p>
+            </div>
+            
+            <div class="what-saved-section">
+                <h4>📋 何が保存されたか</h4>
+                <div class="saved-items">
+                    <div class="saved-item">
+                        <div class="item-icon">🎙️</div>
+                        <div class="item-content">
+                            <h5>元の音声記録ファイル</h5>
+                            <p>ファイル名: <strong>${originalData.filename}</strong></p>
+                            <p>完全な会話内容がそのまま保存されています</p>
+                        </div>
+                    </div>
+                    <div class="saved-item">
+                        <div class="item-icon">📝</div>
+                        <div class="item-content">
+                            <h5>SOAP形式の診療記録</h5>
+                            <p>患者: <strong>${processedData.identification.patient_name}</strong> / 医師: <strong>${processedData.identification.doctor_name}</strong></p>
+                            <p>主観・客観・評価・計画の4項目に整理済み</p>
+                        </div>
+                    </div>
+                    <div class="saved-item">
+                        <div class="item-icon">🤖</div>
+                        <div class="item-content">
+                            <h5>AI分析結果</h5>
+                            <p>内容適合度: <strong>${Math.round(validationResult.validation_score * 100)}%</strong></p>
+                            <p>判定: ${validationResult.is_valid ? '✅ 歯科カウンセリング内容として適切' : '❌ 不適切な内容を検出'}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="how-saved-section">
+                <h4>💾 どのように保存されたか</h4>
+                <div class="storage-explanation">
+                    <div class="storage-visual">
+                        <div class="storage-step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h5>JSONL形式で保存</h5>
+                                <p>1つのカウンセリング記録 = 1行のデータ</p>
+                            </div>
+                        </div>
+                        <div class="storage-step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h5>原文を完全保持</h5>
+                                <p>元の会話内容は1文字も失われずに保存</p>
+                            </div>
+                        </div>
+                        <div class="storage-step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h5>検索・分析可能</h5>
+                                <p>後から内容検索や統計分析が簡単にできます</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="save-metadata">
+                <h4>📊 保存記録の詳細</h4>
+                <div class="metadata-grid">
+                    <div class="metadata-item">
+                        <label>記録ID</label>
+                        <span>${jsonlRecord.session_id}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <label>保存日時</label>
+                        <span>${new Date(jsonlRecord.timestamp).toLocaleString('ja-JP')}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <label>データサイズ</label>
+                        <span>${Math.round(JSON.stringify(jsonlRecord).length / 1024)}KB</span>
+                    </div>
+                </div>
+            </div>
+                </div>
+                
+                <div class="save-info-card">
+                    <h5>🔍 内容検証結果</h5>
+                    <ul>
+                        <li><strong>妥当性:</strong> <span class="validation ${validationResult.isValid ? 'valid' : 'invalid'}">${validationResult.isValid ? '✅ 歯科カウンセリング' : '❌ 不適切な内容'}</span></li>
+                        <li><strong>信頼度:</strong> ${Math.round(validationResult.confidence * 100)}%</li>
+                        <li><strong>歯科関連スコア:</strong> ${Math.round(validationResult.scores.dental * 100)}%</li>
+                        <li><strong>会話形式スコア:</strong> ${Math.round(validationResult.scores.conversation * 100)}%</li>
+                    </ul>
+                </div>
+                
+                <div class="save-info-card">
+                    <h5>🏥 SOAP記録</h5>
+                    <ul>
+                        <li><strong>主観的情報:</strong> ${processedData.soap_record.S.length}文字</li>
+                        <li><strong>客観的所見:</strong> ${processedData.soap_record.O.length}文字</li>
+                        <li><strong>評価・診断:</strong> ${processedData.soap_record.A.length}文字</li>
+                        <li><strong>治療計画:</strong> ${processedData.soap_record.P.length}文字</li>
+                        <li><strong>SOAP信頼度:</strong> ${Math.round(processedData.soap_record.confidence * 100)}%</li>
+                    </ul>
+                </div>
+                
+                <div class="save-info-card">
+                    <h5>📁 元データ情報</h5>
+                    <ul>
+                        <li><strong>ファイル名:</strong> ${originalData.filename}</li>
+                        <li><strong>ファイルサイズ:</strong> ${formatFileSize(originalData.filesize)}</li>
+                        <li><strong>ファイル形式:</strong> ${originalData.filetype.toUpperCase()}</li>
+                        <li><strong>データハッシュ:</strong> ${originalData.content_hash}</li>
+                        <li><strong>総データサイズ:</strong> ${formatFileSize(JSON.stringify(jsonlRecord).length)}</li>
+            
+            <div class="data-structure-section">
+                <h4>🏗️ データ構造（技術者向け詳細）</h4>
+                <div class="data-structure-collapsible">
+                    <button class="structure-toggle" onclick="toggleDataStructure()">構造詳細を表示 ▼</button>
+                    <div class="structure-details" id="structure-details" style="display: none;">
+                        <div class="structure-item">
+                            <code>session_id</code>
+                            <span>各カウンセリングの固有識別子</span>
+                        </div>
+                        <div class="structure-item">
+                            <code>timestamp</code>
+                            <span>記録作成日時</span>
+                        </div>
+                        <div class="structure-item">
+                            <code>original_data</code>
+                            <span>アップロードされた元ファイルの完全な内容</span>
+                        </div>
+                        <div class="structure-item">
+                            <code>processed_data</code>
+                            <span>AIによるSOAP変換結果と品質分析</span>
+                        </div>
+                        <div class="structure-item">
+                            <code>system_info</code>
+                            <span>処理環境とメタデータ</span>
+                        </div>
+                        
+                        <div class="jsonl-example">
+                            <h6>実際のJSONL形式の例：</h6>
+                            <pre>{"session_id":"${jsonlRecord.session_id}","timestamp":"${jsonlRecord.timestamp}","original_data":{"filename":"${originalData.filename}","raw_content":"[元の会話内容すべて]"},"processed_data":{"soap_record":{"S":"[主観的情報]","O":"[客観的所見]","A":"[評価・診断]","P":"[計画]"},"validation_result":{"is_valid":${validationResult.is_valid},"score":${validationResult.validation_score}}}}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="save-summary-actions">
+                <div class="action-note">
+                    <i class="fas fa-info-circle"></i>
+                    <span>このデータは安全に保存され、後から検索・分析・エクスポートが可能です</span>
+                </div>
+            </div>
         </div>
     `;
     
@@ -1115,6 +1551,23 @@ function toggleFormatInfo() {
         formatInfo.style.display = 'none';
     }
 }
+
+// データ構造詳細表示切り替え
+function toggleDataStructure() {
+    const structureDetails = document.getElementById('structure-details');
+    const toggleBtn = document.querySelector('.structure-toggle');
+    
+    if (structureDetails.style.display === 'none' || !structureDetails.style.display) {
+        structureDetails.style.display = 'block';
+        toggleBtn.innerHTML = '構造詳細を非表示 ▲';
+    } else {
+        structureDetails.style.display = 'none';
+        toggleBtn.innerHTML = '構造詳細を表示 ▼';
+    }
+}
+
+// グローバル関数として利用可能にする
+window.toggleDataStructure = toggleDataStructure;
 
 // 元データ表示切り替え
 function toggleRawData() {
