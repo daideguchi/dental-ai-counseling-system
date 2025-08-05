@@ -336,21 +336,36 @@ body {
 .upload-divider {
     display: flex;
     align-items: center;
+    justify-content: center;
     color: #000000 !important;
     font-weight: 700 !important;
-    font-size: 0.9rem;
-    padding: var(--spacing-md);
+    font-size: 1.1rem;
+    padding: var(--spacing-sm);
     background: var(--gray-100);
     border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    justify-content: center;
+    width: 100px;
+    height: 100px;
     text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+    white-space: nowrap !important;
+    min-width: 100px;
+    max-width: 100px;
+    min-height: 100px;
+    max-height: 100px;
+    flex-shrink: 0;
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+    line-height: 1 !important;
 }
 
 .upload-divider span {
     color: #000000 !important;
     font-weight: 700 !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+    display: block !important;
+    line-height: 1 !important;
 }
 
 /* ファイルリスト */

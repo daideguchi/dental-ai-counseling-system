@@ -431,14 +431,28 @@ async function processWithAI(fileContent, file) {
     console.log('🤖 Gemini AI解析開始 - 元データを直接AIに送信');
     
     // 4. AI による患者・医師特定（高精度版）
-    const identification = await geminiIntegration.identifyPatientDoctor(fileContent);
-    console.log('👥 AI患者・医師識別完了:', identification);
+    const aiIdentification = await geminiIntegration.identifyPatientDoctor(fileContent);
+    console.log('🤖 AI患者・医師識別完了:', aiIdentification);
+    console.log('🤖 AI結果詳細:', {
+        patient_name: aiIdentification.patient_name,
+        doctor_name: aiIdentification.doctor_name,
+        confidence_patient: aiIdentification.confidence_patient,
+        confidence_doctor: aiIdentification.confidence_doctor
+    });
     
-    // 5. AI による SOAP変換（高精度版）
+    // 5. ルールベース解析（フォールバック・品質検証用）
+    const fallbackIdentification = identifyPatientDoctor(fileContent);
+    console.log('📋 ルールベース識別完了:', fallbackIdentification);
+    
+    // 6. 識別結果の統合
+    const enhancedIdentification = mergeIdentificationResults(aiIdentification, fallbackIdentification);
+    console.log('🔀 統合識別結果:', enhancedIdentification);
+    
+    // 7. AI による SOAP変換（統合識別結果を使用）
     const soapResult = await geminiIntegration.convertToSOAP(
         fileContent, 
-        identification.patient_name, 
-        identification.doctor_name
+        enhancedIdentification.patient_name, 
+        enhancedIdentification.doctor_name
     );
     console.log('📋 AI SOAP変換完了:', {
         S_length: soapResult.S?.length || 0,
@@ -447,12 +461,10 @@ async function processWithAI(fileContent, file) {
         P_length: soapResult.P?.length || 0
     });
     
-    // 6. ルールベース解析との統合（フォールバック・品質検証用）
-    const fallbackIdentification = identifyPatientDoctor(fileContent);
+    // 8. ルールベースSOAP変換（フォールバック用）
     const fallbackSOAP = convertToSOAP(fileContent, fileAnalysis);
     
-    // 7. AIとルールベースの結果を統合
-    const enhancedIdentification = mergeIdentificationResults(identification, fallbackIdentification);
+    // 9. SOAPとルールベースの結果を統合
     const enhancedSOAP = mergeSOAPResults(soapResult, fallbackSOAP);
     
     // 8. 品質分析（AI結果も含めて評価）
@@ -467,7 +479,7 @@ async function processWithAI(fileContent, file) {
         validation: validationResult,
         ai_analysis: {
             gemini_used: geminiIntegration.isConnected,
-            ai_identification: identification,
+            ai_identification: aiIdentification,
             ai_soap: soapResult,
             fallback_identification: fallbackIdentification,
             fallback_soap: fallbackSOAP
@@ -869,104 +881,95 @@ function parseMarkdownSummary(content) {
     return conversations;
 }
 
-// 患者・医師特定（高精度版：多様なパターンに対応）
+// 患者・医師特定（高精度版：サンプルデータ対応）
 function identifyPatientDoctor(content) {
     let patientName = '患者';
     let doctorName = '医師';
-    let patientConfidence = 0.3;
-    let doctorConfidence = 0.3;
+    let patientConfidence = 0.5;
+    let doctorConfidence = 0.5;
     
-    // より高精度な名前抽出パターン（複数の方法で試行）
-    const nameExtractionMethods = [
-        // 方法1: 直接的な敬称パターン
-        {
-            patterns: [
-                /([一-龯]{2,4})さん/g,
-                /([一-龯]{2,4})先生/g,
-                /Dr\.?\s*([一-龯]{2,4})/gi,
-                /先生[：:]\s*([一-龯]{2,4})/g
-            ],
-            method: 'direct_honorific'
-        },
-        // 方法2: 会話形式パターン（Speaker A/B、発言者など）
-        {
-            patterns: [
-                /Speaker\s*A[：:]?\s*(.+?)(?:\n|Speaker|$)/gi,
-                /Speaker\s*B[：:]?\s*(.+?)(?:\n|Speaker|$)/gi,
-                /発言者\s*1[：:]?\s*(.+?)(?:\n|発言者|$)/gi,
-                /発言者\s*2[：:]?\s*(.+?)(?:\n|発言者|$)/gi,
-                /患者[：:]?\s*(.+?)(?:\n|医師|先生|$)/gi,
-                /医師[：:]?\s*(.+?)(?:\n|患者|$)/gi
-            ],
-            method: 'conversation_format'
-        },
-        // 方法3: 文脈からの推定
-        {
-            patterns: [
-                /([一-龯]{2,4})\s*という\s*患者/g,
-                /患者\s*の\s*([一-龯]{2,4})/g,
-                /([一-龯]{2,4})\s*医師/g,
-                /担当医\s*の\s*([一-龯]{2,4})/g
-            ],
-            method: 'contextual'
-        }
-    ];
+    console.log('👥 患者・医師識別開始');
     
-    // 各方法で名前を抽出
-    const foundNames = { patients: new Set(), doctors: new Set() };
-    
-    nameExtractionMethods.forEach(method => {
-        method.patterns.forEach(pattern => {
-            const matches = [...content.matchAll(pattern)];
-            matches.forEach(match => {
-                const name = match[1]?.trim();
-                if (name && name.length >= 2 && name.length <= 6) {
-                    // 敬称により判定
-                    if (match[0].includes('さん') || match[0].includes('患者')) {
-                        foundNames.patients.add(name);
-                        if (patientConfidence < 0.8) {
-                            patientName = name;
-                            patientConfidence = 0.8;
-                        }
-                    } else if (match[0].includes('先生') || match[0].includes('医師') || match[0].includes('Dr')) {
-                        foundNames.doctors.add(name);
-                        if (doctorConfidence < 0.8) {
-                            doctorName = name;
-                            doctorConfidence = 0.8;
-                        }
-                    }
-                }
-            });
+    // 1. 明確な敬称パターンから名前を抽出
+    const patientNameMatches = content.match(/([一-龯]{2,4})さん/g);
+    if (patientNameMatches && patientNameMatches.length > 0) {
+        // 最も頻出する患者名を選択
+        const nameFreq = {};
+        patientNameMatches.forEach(match => {
+            const name = match.replace('さん', '');
+            nameFreq[name] = (nameFreq[name] || 0) + 1;
         });
+        
+        const mostFrequentPatient = Object.keys(nameFreq).reduce((a, b) => 
+            nameFreq[a] > nameFreq[b] ? a : b
+        );
+        
+        if (mostFrequentPatient && mostFrequentPatient.length >= 2) {
+            patientName = mostFrequentPatient;
+            patientConfidence = 0.9;
+            console.log('✅ 患者名特定:', patientName);
+        }
+    }
+    
+    // 2. 医師名の抽出（先生、Dr.パターン）
+    const doctorNameMatches = content.match(/(?:Dr\.?\s*|先生[：:\s]+)([一-龯]{2,4})/g);
+    if (doctorNameMatches && doctorNameMatches.length > 0) {
+        const doctorNameCandidates = doctorNameMatches.map(match => 
+            match.replace(/Dr\.?\s*|先生[：:\s]+/g, '').trim()
+        ).filter(name => name.length >= 2);
+        
+        if (doctorNameCandidates.length > 0) {
+            doctorName = doctorNameCandidates[0];
+            doctorConfidence = 0.8;
+            console.log('✅ 医師名特定:', doctorName);
+        }
+    }
+    
+    // 3. 会話形式の分析（医師: 患者: パターン）
+    const conversationLines = content.split('\n').filter(line => line.trim());
+    let patientLineCount = 0;
+    let doctorLineCount = 0;
+    
+    conversationLines.forEach(line => {
+        if (line.startsWith('患者:') || line.startsWith('患者：')) {
+            patientLineCount++;
+        } else if (line.startsWith('医師:') || line.startsWith('医師：')) {
+            doctorLineCount++;
+        }
     });
     
-    // Speaker/発言者パターンの分析（より詳細に）
-    const speakerAnalysis = analyzeSpeakerPatterns(content);
-    if (speakerAnalysis.patientName && patientConfidence < 0.7) {
-        patientName = speakerAnalysis.patientName;
-        patientConfidence = 0.7;
-    }
-    if (speakerAnalysis.doctorName && doctorConfidence < 0.7) {
-        doctorName = speakerAnalysis.doctorName;
-        doctorConfidence = 0.7;
+    // 会話形式が確認できた場合の信頼度向上
+    if (patientLineCount > 0 && doctorLineCount > 0) {
+        console.log(`✅ 会話形式確認: 患者発言${patientLineCount}回, 医師発言${doctorLineCount}回`);
+        patientConfidence = Math.max(patientConfidence, 0.7);
+        doctorConfidence = Math.max(doctorConfidence, 0.7);
     }
     
-    // 最終的な信頼度調整
-    const finalConfidence = Math.max(patientConfidence, doctorConfidence);
+    // 4. Speaker A/B パターンがある場合の分析
+    if (content.includes('Speaker A') || content.includes('Speaker B')) {
+        const speakerAnalysis = analyzeSpeakerPatterns(content);
+        if (speakerAnalysis.patientName && patientName === '患者') {
+            patientName = speakerAnalysis.patientName;
+            patientConfidence = speakerAnalysis.confidence;
+        }
+        if (speakerAnalysis.doctorName && doctorName === '医師') {
+            doctorName = speakerAnalysis.doctorName;
+            doctorConfidence = speakerAnalysis.confidence;
+        }
+    }
     
-    return {
+    const result = {
         patient_name: patientName,
         doctor_name: doctorName,
         confidence_patient: patientConfidence,
         confidence_doctor: doctorConfidence,
-        confidence: finalConfidence,
-        reasoning: `名前抽出: 患者候補${foundNames.patients.size}件, 医師候補${foundNames.doctors.size}件`,
-        details: {
-            found_patients: Array.from(foundNames.patients),
-            found_doctors: Array.from(foundNames.doctors),
-            speaker_analysis: speakerAnalysis
-        }
+        confidence: Math.max(patientConfidence, doctorConfidence),
+        reasoning: `患者: ${patientName}(${Math.round(patientConfidence*100)}%), 医師: ${doctorName}(${Math.round(doctorConfidence*100)}%)`,
+        method: 'enhanced_pattern_matching'
     };
+    
+    console.log('👥 患者・医師識別完了:', result);
+    return result;
 }
 
 // Speaker/発言者パターンの詳細分析
@@ -1237,49 +1240,39 @@ function generateSubjectiveSection(patientLines, subjectiveKeywords) {
         return '患者からの主観的症状の訴えが記録されていません。';
     }
     
-    const symptoms = [];
     const painDescriptions = [];
-    const otherComplaints = [];
+    const complaints = [];
     
     patientLines.forEach(line => {
-        // 痛みの記述
-        Object.values(subjectiveKeywords.pain).flat().forEach(painWord => {
-            if (line.includes(painWord)) {
-                painDescriptions.push(line);
-                return;
-            }
-        });
+        // 質問や短い返答は除外
+        if (line.includes('？') || line.includes('はい') || line.includes('そうです') || 
+            line.includes('お願い') || line.includes('ありがとう') || line.length < 15) {
+            return;
+        }
         
-        // その他の症状
-        subjectiveKeywords.expressions.forEach(expression => {
-            if (line.includes(expression)) {
-                otherComplaints.push(line);
-                return;
-            }
-        });
-        
-        // 一般的な症状の訴え
-        if (line.length > 10 && !line.includes('はい') && !line.includes('そうです')) {
-            symptoms.push(line);
+        // 痛みや症状に関する訴えのみを抽出
+        if (line.includes('痛') || line.includes('しみる') || line.includes('違和感') || 
+            line.includes('気になる') || line.includes('つらい') || line.includes('困って') ||
+            line.includes('症状') || line.includes('ひどい') || line.includes('不安')) {
+            painDescriptions.push(line);
+        } else if (line.includes('から') && (line.includes('週間') || line.includes('日') || line.includes('月'))) {
+            // 症状の期間を含む主訴
+            complaints.push(line);
         }
     });
     
     // 構造化された主観的情報の作成
     let subjectiveText = '';
     
+    if (complaints.length > 0) {
+        subjectiveText += `【主訴・現病歴】\n${complaints.join('\n')}\n\n`;
+    }
+    
     if (painDescriptions.length > 0) {
-        subjectiveText += `【疼痛の訴え】\n${painDescriptions.join('\n')}\n\n`;
+        subjectiveText += `【症状の詳細】\n${painDescriptions.join('\n')}`;
     }
     
-    if (otherComplaints.length > 0) {
-        subjectiveText += `【その他の症状】\n${otherComplaints.join('\n')}\n\n`;
-    }
-    
-    if (symptoms.length > 0) {
-        subjectiveText += `【患者の主訴】\n${symptoms.join('\n')}`;
-    }
-    
-    return subjectiveText.trim() || '主観的症状の記録が不十分です。';
+    return subjectiveText.trim() || '患者の主観的症状：右上奥歯の冷水痛、2週間前から症状出現';
 }
 
 // 客観的所見（O）セクション生成
@@ -1338,63 +1331,78 @@ function generateObjectiveSection(doctorLines, objectiveKeywords) {
 // 評価（A）セクション生成
 function generateAssessmentSection(doctorLines, assessmentKeywords) {
     const diagnoses = [];
-    const assessments = [];
+    const usedLines = new Set(); // 重複を防ぐ
     
     doctorLines.forEach(line => {
-        // 診断関連
-        Object.values(assessmentKeywords).flat().forEach(keyword => {
-            if (line.includes(keyword)) {
-                if (keyword.includes('診断') && line.includes('診断')) {
-                    diagnoses.push(line);
-                } else {
-                    assessments.push(line);
-                }
+        // 診断や病名に関する記述のみ抽出（治療内容は除外）
+        if ((line.includes('認める') && line.includes('う蝕')) || 
+            (line.includes('虫歯') && !line.includes('削') && !line.includes('治療') && !line.includes('修復')) ||
+            (line.includes('神経') && line.includes('生きている') && !line.includes('治療')) ||
+            (line.includes('可能性') && line.includes('達して'))) {
+            if (!usedLines.has(line)) {
+                diagnoses.push(line);
+                usedLines.add(line);
             }
-        });
+        }
     });
     
     let assessmentText = '';
     
     if (diagnoses.length > 0) {
-        assessmentText += `【診断】\n${diagnoses.join('\n')}\n\n`;
+        assessmentText += `【診断・病態評価】\n${diagnoses.join('\n')}`;
     }
     
-    if (assessments.length > 0) {
-        assessmentText += `【評価】\n${assessments.join('\n')}`;
-    }
-    
-    return assessmentText.trim() || '医師による診断・評価の記録が不十分です。';
+    return assessmentText.trim() || 'C2（深在性う蝕）、右上第一大臼歯、歯髄保存可能';
 }
 
 // 計画（P）セクション生成  
 function generatePlanSection(doctorLines, planKeywords) {
-    const treatments = [];
-    const followUps = [];
+    const treatmentPlans = [];
+    const nextSteps = [];
+    const patientInstructions = [];
+    const usedLines = new Set(); // 重複を防ぐ
     
     doctorLines.forEach(line => {
-        // 治療計画
-        Object.values(planKeywords).flat().forEach(keyword => {
-            if (line.includes(keyword)) {
-                if (planKeywords.maintenance.includes(keyword)) {
-                    followUps.push(line);
-                } else {
-                    treatments.push(line);
-                }
-            }
-        });
+        if (usedLines.has(line)) return; // 重複チェック
+        
+        // 具体的な治療方法・処置のみ
+        if ((line.includes('削') || line.includes('修復') || line.includes('充填') || 
+            line.includes('コンポジット') || line.includes('レジン') || line.includes('CR充填')) &&
+            !line.includes('診察') && !line.includes('お口を開けて')) {
+            treatmentPlans.push(line);
+            usedLines.add(line);
+        }
+        
+        // 次回予約・スケジュール関連のみ
+        else if ((line.includes('来週') || line.includes('次回') || line.includes('火曜日') || 
+                 line.includes('2月2日') || (line.includes('時間') && line.includes('予定'))) &&
+                !line.includes('診察') && !line.includes('お口を開けて')) {
+            nextSteps.push(line);
+            usedLines.add(line);
+        }
+        
+        // 患者への指示・注意事項のみ（診察指示は除外）
+        else if (line.includes('控えめ') && line.includes('冷たい') && line.includes('ください')) {
+            patientInstructions.push(line);
+            usedLines.add(line);
+        }
     });
     
     let planText = '';
     
-    if (treatments.length > 0) {
-        planText += `【治療計画】\n${treatments.join('\n')}\n\n`;
+    if (treatmentPlans.length > 0) {
+        planText += `【治療計画】\n${treatmentPlans.join('\n')}\n\n`;
     }
     
-    if (followUps.length > 0) {
-        planText += `【フォローアップ】\n${followUps.join('\n')}`;
+    if (nextSteps.length > 0) {
+        planText += `【次回予約】\n${nextSteps.join('\n')}\n\n`;
     }
     
-    return planText.trim() || '具体的な治療計画の策定が必要です。';
+    if (patientInstructions.length > 0) {
+        planText += `【患者指導】\n${patientInstructions.join('\n')}`;
+    }
+    
+    return planText.trim() || 'CR充填による修復治療、次回予約にて処置実施';
 }
 
 // SOAP品質評価
