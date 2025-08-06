@@ -94,60 +94,55 @@ ${conversationText}
    let patientConfidence = 0.4;
    let doctorConfidence = 0.4;
 
-   // より詳細なパターンマッチング
-   const patientPatterns = [
-     /([一-龯]{2,4})さん、/g,
-     /([一-龯]{2,4})さんの/g,
-     /患者[：:\s]*([一-龯]{2,4})/g,
-     /([一-龯]{2,4})患者/g
-   ];
-
-   const doctorPatterns = [
-     /([一-龯]{2,4})先生/g,
-     /Dr\.?\s*([一-龯]{2,4})/g,
-     /医師[：:\s]*([一-龯]{2,4})/g,
-     /([一-龯]{2,4})医師/g,
-     /歯科医[：:\s]*([一-龯]{2,4})/g
-   ];
-
-   // サンプルデータから固有名詞を抽出
-   const sampleNames = conversationText.match(/田中|佐藤|鈴木|高橋|渡辺|伊藤|山田|中村|小林|松本/g);
+   // 安全なパターンマッチング（○○さん、○○先生のみ）
+   console.log('🔍 gemini_integration.js フォールバック識別開始');
    
-   // 患者名検索（優先度順）
-   patientPatterns.forEach((pattern, index) => {
-     const matches = [...conversationText.matchAll(pattern)];
-     if (matches.length > 0) {
-       const extractedName = matches[0][1].trim();
-       if (extractedName.length >= 2 && extractedName.length <= 4) {
-         patientName = extractedName;
-         patientConfidence = Math.max(patientConfidence, 0.9 - (index * 0.1));
-       }
+   // 患者名抽出（○○さんパターンのみ）
+   const patientNameMatches = conversationText.match(/([一-龯]{2,4})さん/g);
+   if (patientNameMatches && patientNameMatches.length > 0) {
+     // 最も頻出する患者名を選択
+     const nameFreq = {};
+     patientNameMatches.forEach(match => {
+       const name = match.replace('さん', '');
+       nameFreq[name] = (nameFreq[name] || 0) + 1;
+     });
+     
+     const mostFrequentPatient = Object.keys(nameFreq).reduce((a, b) => 
+       nameFreq[a] > nameFreq[b] ? a : b
+     );
+     
+     if (mostFrequentPatient && mostFrequentPatient.length >= 2) {
+       patientName = mostFrequentPatient;
+       patientConfidence = 0.9;
+       console.log('✅ フォールバック患者名特定:', patientName);
      }
-   });
-
-   // 医師名検索（優先度順）
-   doctorPatterns.forEach((pattern, index) => {
-     const matches = [...conversationText.matchAll(pattern)];
-     if (matches.length > 0) {
-       const extractedName = matches[0][1].trim();
-       if (extractedName.length >= 2 && extractedName.length <= 4) {
-         doctorName = extractedName;
-         doctorConfidence = Math.max(doctorConfidence, 0.9 - (index * 0.1));
-       }
-     }
-   });
-
-   // サンプルデータから推測（田中さんがいる場合）
-   if (sampleNames && sampleNames.includes('田中') && patientName === '患者') {
-     patientName = '田中';
-     patientConfidence = 0.8;
    }
    
-   // 「○○さん」パターンがない場合の特別処理
-   if (patientName === '患者' && conversationText.includes('田中さん')) {
-     patientName = '田中';
-     patientConfidence = 0.85;
+   // 医師名抽出（○○先生、Dr.○○パターンのみ）
+   const doctorNameMatches = conversationText.match(/([一-龯]{2,4})先生/g);
+   if (doctorNameMatches && doctorNameMatches.length > 0) {
+     const name = doctorNameMatches[0].replace('先生', '');
+     if (name.length >= 2 && name.length <= 4) {
+       doctorName = name;
+       doctorConfidence = 0.8;
+       console.log('✅ フォールバック医師名特定:', doctorName);
+     }
+   } else {
+     // Dr.パターンも確認
+     const drMatches = conversationText.match(/Dr\.?\s*([一-龯]{2,4})/g);
+     if (drMatches && drMatches.length > 0) {
+       const match = drMatches[0].match(/Dr\.?\s*([一-龯]{2,4})/);
+       if (match && match[1]) {
+         doctorName = match[1];
+         doctorConfidence = 0.7;
+         console.log('✅ フォールバックDr.名特定:', doctorName);
+       }
+     }
    }
+
+   
+   // 結果ログ
+   console.log('🔍 フォールバック識別結果:', { patientName, doctorName, patientConfidence, doctorConfidence });
 
    // 話者パターンから推測
    const speakerACount = (conversationText.match(/Speaker A|発言者A/g) || []).length;

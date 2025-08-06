@@ -445,23 +445,29 @@ async function processWithAI(fileContent, file) {
     
     console.log('🤖 Gemini AI解析開始 - 元データを直接AIに送信');
     
-    // 4. AI による患者・医師特定（高精度版）
-    const aiIdentification = await geminiIntegration.identifyPatientDoctor(fileContent);
-    console.log('🤖 AI患者・医師識別完了:', aiIdentification);
-    console.log('🤖 AI結果詳細:', {
-        patient_name: aiIdentification.patient_name,
-        doctor_name: aiIdentification.doctor_name,
-        confidence_patient: aiIdentification.confidence_patient,
-        confidence_doctor: aiIdentification.confidence_doctor
-    });
+    // 4. 患者・医師識別（安全なルールベース優先）
+    let enhancedIdentification;
     
-    // 5. ルールベース解析（フォールバック・品質検証用）
-    const fallbackIdentification = identifyPatientDoctor(fileContent);
-    console.log('📋 ルールベース識別完了:', fallbackIdentification);
-    
-    // 6. 識別結果の統合
-    const enhancedIdentification = mergeIdentificationResults(aiIdentification, fallbackIdentification);
-    console.log('🔀 統合識別結果:', enhancedIdentification);
+    if (geminiIntegration && geminiIntegration.isConnected) {
+        // AI APIが接続されている場合のみAI識別を使用
+        console.log('🤖 AI識別モード: Gemini API使用');
+        const aiIdentification = await geminiIntegration.identifyPatientDoctor(fileContent);
+        console.log('🤖 AI患者・医師識別完了:', aiIdentification);
+        
+        // ルールベース解析（品質検証用）
+        const fallbackIdentification = identifyPatientDoctor(fileContent);
+        console.log('📋 ルールベース識別完了:', fallbackIdentification);
+        
+        // 結果の統合
+        enhancedIdentification = mergeIdentificationResults(aiIdentification, fallbackIdentification);
+        console.log('🔀 統合識別結果:', enhancedIdentification);
+    } else {
+        // AI APIがオフラインの場合は信頼性の高いルールベースのみを使用
+        console.log('📋 ルールベース識別モード: AI API不使用（安全モード）');
+        enhancedIdentification = identifyPatientDoctor(fileContent);
+        enhancedIdentification.method = 'rules_only_safe';
+        console.log('✅ ルールベース識別結果:', enhancedIdentification);
+    }
     
     // 7. AI による SOAP変換（統合識別結果を使用）
     const soapResult = await geminiIntegration.convertToSOAP(
