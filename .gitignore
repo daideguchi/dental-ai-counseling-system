@@ -51,8 +51,6 @@ Thumbs.db
 .kiro/
 .git_backup_*
 gh-pages/
-realistic_sample_data/
-sample_data/
 output/
 static/
 
