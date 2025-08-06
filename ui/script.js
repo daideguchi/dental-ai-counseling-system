@@ -425,91 +425,278 @@ async function readFileContent(file) {
 
 // AI処理（Gemini API統合による高精度版）
 async function processWithAI(fileContent, file) {
-    console.log('🧠 AI解析開始:', file.name);
+    console.log('🚀 === 歯科AIシステム 処理開始 ===');
+    console.log('📂 ファイル情報:', {
+        名前: file.name,
+        サイズ: Math.round(file.size / 1024) + 'KB',
+        タイプ: file.type,
+        最終更新: new Date(file.lastModified).toLocaleString('ja-JP')
+    });
+    console.log('📝 内容長:', fileContent.length + '文字');
+    console.log('⏰ 処理開始時刻:', new Date().toLocaleString('ja-JP'));
     
     // 1. 事前妥当性検証（歯科カウンセリング関連かどうかAIで判定）
-    const validationResult = await validateDentalContent(fileContent);
-    if (!validationResult.isValid) {
-        throw new Error(`❌ 歯科カウンセリング以外の内容が検出されました: ${validationResult.reason}\n\n正しいファイルをアップロードしてください。`);
+    console.log('🔍 ステップ1: 内容妥当性検証開始');
+    let validationResult;
+    try {
+        validationResult = await validateDentalContent(fileContent);
+        console.log('✅ 妥当性検証完了:', {
+            有効: validationResult.isValid ? '✅ 有効' : '❌ 無効',
+            信頼度: Math.round((validationResult.confidence || 0) * 100) + '%',
+            理由: validationResult.reason || '問題なし'
+        });
+        
+        if (!validationResult.isValid) {
+            console.error('❌ ファイル検証失敗:', validationResult.reason);
+            throw new Error(`❌ 歯科カウンセリング以外の内容が検出されました: ${validationResult.reason}\n\n正しいファイルをアップロードしてください。`);
+        }
+    } catch (error) {
+        console.error('❌ 妥当性検証エラー:', error.message);
+        throw error;
     }
     
-    console.log('✅ 内容妥当性検証通過:', validationResult.confidence);
-    
     // 2. ファイル形式の判定
-    const fileExtension = file.name.split('.').pop().toLowerCase();
-    const fileAnalysis = analyzeFileContent(fileContent, fileExtension, file.name);
+    console.log('📊 ステップ2: ファイル内容分析開始');
+    let fileExtension, fileAnalysis;
+    try {
+        fileExtension = file.name.split('.').pop().toLowerCase();
+        console.log('🔤 ファイル拡張子:', fileExtension);
+        
+        fileAnalysis = analyzeFileContent(fileContent, fileExtension, file.name);
+        console.log('✅ ファイル分析完了:', {
+            形式: fileAnalysis.format,
+            構造: fileAnalysis.structure,
+            総行数: fileAnalysis.totalLines,
+            会話数: fileAnalysis.conversations?.length || 0,
+            話者数: fileAnalysis.speakers?.length || 0,
+            文字数: fileAnalysis.totalCharacters || 0
+        });
+    } catch (error) {
+        console.error('❌ ファイル分析エラー:', error.message);
+        throw new Error('ファイル分析に失敗しました: ' + error.message);
+    }
     
     // 3. Gemini AIを使った高精度解析
-    const geminiIntegration = new GeminiIntegration();
-    await geminiIntegration.checkConnection();
+    console.log('🤖 ステップ3: Gemini API統合開始');
+    let geminiIntegration;
+    try {
+        geminiIntegration = new GeminiIntegration();
+        const isConnected = await geminiIntegration.checkConnection();
+        console.log('🔗 Gemini API接続状態:', {
+            接続: isConnected ? '✅ 成功' : '❌ 失敗',
+            エンドポイント: geminiIntegration.apiEndpoint || 'なし',
+            設定: geminiIntegration.isConnected ? '有効' : '無効'
+        });
+    } catch (error) {
+        console.error('❌ Gemini API統合エラー:', error.message);
+        // エラーでも処理を継続（フォールバックモード）
+        geminiIntegration = { isConnected: false, error: error.message };
+    }
     
     console.log('🤖 Gemini AI解析開始 - 元データを直接AIに送信');
+    console.log('📂 処理対象ファイル:', file.name, `(${Math.round(file.size/1024)}KB)`);
+    console.log('📊 ファイル分析結果:', {
+        形式: fileAnalysis.format,
+        総行数: fileAnalysis.totalLines,
+        会話数: fileAnalysis.conversations?.length || 0,
+        話者数: fileAnalysis.speakers?.length || 0
+    });
     
     // 4. 患者・医師識別（安全なルールベース優先）
+    console.log('👥 ステップ4: 患者・医師識別開始');
     let enhancedIdentification;
+    let aiIdentification = null;
+    let fallbackIdentification = null;
     
     if (geminiIntegration && geminiIntegration.isConnected) {
         // AI APIが接続されている場合のみAI識別を使用
         console.log('🤖 AI識別モード: Gemini API使用');
-        const aiIdentification = await geminiIntegration.identifyPatientDoctor(fileContent);
-        console.log('🤖 AI患者・医師識別完了:', aiIdentification);
+        try {
+            aiIdentification = await geminiIntegration.identifyPatientDoctor(fileContent);
+            console.log('✅ AI患者・医師識別完了:', aiIdentification);
+        } catch (error) {
+            console.error('❌ AI識別エラー:', error.message);
+            aiIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0 };
+        }
         
         // ルールベース解析（品質検証用）
-        const fallbackIdentification = identifyPatientDoctor(fileContent);
-        console.log('📋 ルールベース識別完了:', fallbackIdentification);
+        console.log('📋 ルールベース識別実行中...');
+        try {
+            fallbackIdentification = identifyPatientDoctor(fileContent);
+            console.log('✅ ルールベース識別完了:', fallbackIdentification);
+        } catch (error) {
+            console.error('❌ ルールベース識別エラー:', error.message);
+            fallbackIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0 };
+        }
         
         // 結果の統合
+        console.log('🔀 識別結果統合中...');
         enhancedIdentification = mergeIdentificationResults(aiIdentification, fallbackIdentification);
-        console.log('🔀 統合識別結果:', enhancedIdentification);
+        console.log('✅ 統合識別結果:', enhancedIdentification);
     } else {
         // AI APIがオフラインの場合は信頼性の高いルールベースのみを使用
         console.log('📋 ルールベース識別モード: AI API不使用（安全モード）');
-        enhancedIdentification = identifyPatientDoctor(fileContent);
-        enhancedIdentification.method = 'rules_only_safe';
-        console.log('✅ ルールベース識別結果:', enhancedIdentification);
+        try {
+            fallbackIdentification = identifyPatientDoctor(fileContent);
+            enhancedIdentification = fallbackIdentification;
+            enhancedIdentification.method = 'rules_only_safe';
+            console.log('✅ ルールベース識別結果:', enhancedIdentification);
+        } catch (error) {
+            console.error('❌ ルールベース識別エラー:', error.message);
+            enhancedIdentification = { 
+                patient_name: '患者', 
+                doctor_name: '医師', 
+                confidence: 0.1, 
+                method: 'fallback_default',
+                error: error.message 
+            };
+        }
     }
     
-    // 7. AI による SOAP変換（統合識別結果を使用）
-    const soapResult = await geminiIntegration.convertToSOAP(
-        fileContent, 
-        enhancedIdentification.patient_name, 
-        enhancedIdentification.doctor_name
-    );
-    console.log('📋 AI SOAP変換完了:', {
-        S_length: soapResult.S?.length || 0,
-        O_length: soapResult.O?.length || 0,
-        A_length: soapResult.A?.length || 0,
-        P_length: soapResult.P?.length || 0
+    // 5. AI による SOAP変換（統合識別結果を使用）
+    console.log('📋 ステップ5: SOAP変換開始');
+    let soapResult = null;
+    let fallbackSOAP = null;
+    let enhancedSOAP = null;
+    
+    console.log('🔄 患者・医師情報使用:', {
+        患者名: enhancedIdentification.patient_name,
+        医師名: enhancedIdentification.doctor_name,
+        方法: enhancedIdentification.method
     });
     
-    // 8. ルールベースSOAP変換（フォールバック用）
-    const fallbackSOAP = convertToSOAP(fileContent, fileAnalysis);
+    if (geminiIntegration && geminiIntegration.isConnected) {
+        console.log('🤖 AI SOAP変換実行中...');
+        try {
+            soapResult = await geminiIntegration.convertToSOAP(
+                fileContent, 
+                enhancedIdentification.patient_name, 
+                enhancedIdentification.doctor_name
+            );
+            console.log('✅ AI SOAP変換完了:', {
+                S_length: soapResult?.S?.length || 0,
+                O_length: soapResult?.O?.length || 0,
+                A_length: soapResult?.A?.length || 0,
+                P_length: soapResult?.P?.length || 0,
+                confidence: soapResult?.confidence || 0
+            });
+        } catch (error) {
+            console.error('❌ AI SOAP変換エラー:', error.message);
+            soapResult = { S: '', O: '', A: '', P: '', confidence: 0, error: error.message };
+        }
+    } else {
+        console.log('⏭️ AI SOAP変換スキップ（API未接続）');
+        soapResult = { S: '', O: '', A: '', P: '', confidence: 0, method: 'api_offline' };
+    }
     
-    // 9. SOAPとルールベースの結果を統合
-    const enhancedSOAP = mergeSOAPResults(soapResult, fallbackSOAP);
+    // 6. ルールベースSOAP変換（フォールバック用）
+    console.log('📋 ルールベースSOAP変換実行中...');
+    try {
+        fallbackSOAP = convertToSOAP(fileContent, fileAnalysis);
+        console.log('✅ ルールベースSOAP変換完了:', {
+            S_length: fallbackSOAP?.S?.length || 0,
+            O_length: fallbackSOAP?.O?.length || 0,
+            A_length: fallbackSOAP?.A?.length || 0,
+            P_length: fallbackSOAP?.P?.length || 0
+        });
+    } catch (error) {
+        console.error('❌ ルールベースSOAP変換エラー:', error.message);
+        fallbackSOAP = { S: 'エラーが発生しました', O: '', A: '', P: '', error: error.message };
+    }
+    
+    // 7. SOAPとルールベースの結果を統合
+    console.log('🔀 SOAP結果統合中...');
+    try {
+        enhancedSOAP = mergeSOAPResults(soapResult, fallbackSOAP);
+        console.log('✅ SOAP統合完了:', {
+            final_method: enhancedSOAP?.method,
+            confidence: enhancedSOAP?.confidence
+        });
+    } catch (error) {
+        console.error('❌ SOAP統合エラー:', error.message);
+        enhancedSOAP = fallbackSOAP || { S: 'システムエラー', O: '', A: '', P: '' };
+    }
     
     // 8. 品質分析（AI結果も含めて評価）
-    const qualityAnalysis = await analyzeQualityWithAI(fileContent, fileAnalysis, soapResult);
+    console.log('📊 ステップ6: 品質分析開始');
+    let qualityAnalysis = null;
+    try {
+        qualityAnalysis = await analyzeQualityWithAI(fileContent, fileAnalysis, soapResult);
+        console.log('✅ 品質分析完了:', {
+            communication_quality: Math.round((qualityAnalysis?.communication_quality || 0) * 100) + '%',
+            patient_understanding: Math.round((qualityAnalysis?.patient_understanding || 0) * 100) + '%',
+            treatment_consent: Math.round((qualityAnalysis?.treatment_consent_likelihood || 0) * 100) + '%',
+            method: qualityAnalysis?.method
+        });
+    } catch (error) {
+        console.error('❌ 品質分析エラー:', error.message);
+        qualityAnalysis = {
+            communication_quality: 0.5,
+            patient_understanding: 0.5,
+            treatment_consent_likelihood: 0.5,
+            improvement_suggestions: ['エラーのため分析不可'],
+            positive_aspects: ['基本データのみ利用可能'],
+            error: error.message
+        };
+    }
     
     // 9. JSONL形式データの生成（原文データ含む）
-    const jsonlData = generateJSONLData(fileContent, file, {
-        identification: enhancedIdentification,
-        soap: enhancedSOAP,
-        quality: qualityAnalysis,
-        fileAnalysis,
-        validation: validationResult,
-        ai_analysis: {
-            gemini_used: geminiIntegration.isConnected,
-            ai_identification: aiIdentification,
-            ai_soap: soapResult,
-            fallback_identification: fallbackIdentification,
-            fallback_soap: fallbackSOAP
-        }
+    console.log('📝 ステップ7: JSONL形式データ生成開始');
+    let jsonlData = null;
+    try {
+        jsonlData = generateJSONLData(fileContent, file, {
+            identification: enhancedIdentification,
+            soap: enhancedSOAP,
+            quality: qualityAnalysis,
+            fileAnalysis,
+            validation: validationResult,
+            ai_analysis: {
+                gemini_used: geminiIntegration.isConnected,
+                ai_identification: aiIdentification,
+                ai_soap: soapResult,
+                fallback_identification: fallbackIdentification,
+                fallback_soap: fallbackSOAP
+            }
+        });
+        console.log('✅ JSONL生成完了:', {
+            データサイズ: Math.round(JSON.stringify(jsonlData).length / 1024) + 'KB',
+            セッションID: jsonlData?.session_id
+        });
+    } catch (error) {
+        console.error('❌ JSONL生成エラー:', error.message);
+        jsonlData = {
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            fallback_data: { identification: enhancedIdentification, soap: enhancedSOAP }
+        };
+    }
+    
+    // 最終結果のサマリー
+    console.log('🎯 === AI解析完了 - 処理結果サマリー ===');
+    console.log('👥 識別結果:', {
+        患者名: enhancedIdentification?.patient_name,
+        医師名: enhancedIdentification?.doctor_name,
+        方法: enhancedIdentification?.method
     });
+    console.log('📋 SOAP結果:', {
+        S文字数: enhancedSOAP?.S?.length || 0,
+        O文字数: enhancedSOAP?.O?.length || 0,
+        A文字数: enhancedSOAP?.A?.length || 0,
+        P文字数: enhancedSOAP?.P?.length || 0
+    });
+    console.log('📊 品質スコア:', {
+        コミュニケーション: Math.round((qualityAnalysis?.communication_quality || 0) * 100) + '%',
+        患者理解度: Math.round((qualityAnalysis?.patient_understanding || 0) * 100) + '%',
+        治療同意: Math.round((qualityAnalysis?.treatment_consent_likelihood || 0) * 100) + '%'
+    });
+    console.log('🔧 処理方法:', {
+        Gemini接続: geminiIntegration.isConnected ? '✅ 接続中' : '❌ 未接続',
+        AI使用: aiIdentification ? '✅ 使用' : '❌ 未使用',
+        フォールバック: fallbackIdentification ? '✅ 実行' : '❌ 未実行'
+    });
+    console.log('✅ === 全処理完了 ===');
     
-    console.log('🎯 AI解析完了 - 高精度処理済み');
-    
-    return {
+    const result = {
         identification: enhancedIdentification,
         soap: enhancedSOAP,
         quality: qualityAnalysis,
@@ -524,9 +711,24 @@ async function processWithAI(fileContent, file) {
         },
         ai_processing: {
             gemini_enabled: geminiIntegration.isConnected,
-            processing_method: geminiIntegration.isConnected ? 'ai_enhanced' : 'rule_based_fallback'
+            processing_method: geminiIntegration.isConnected ? 'ai_enhanced' : 'rule_based_fallback',
+            ai_identification_used: aiIdentification !== null,
+            fallback_identification_used: fallbackIdentification !== null,
+            errors_occurred: [
+                enhancedIdentification?.error,
+                enhancedSOAP?.error,
+                qualityAnalysis?.error,
+                jsonlData?.error
+            ].filter(Boolean)
         }
     };
+    
+    console.log('📦 返却データ準備完了:', {
+        データサイズ: Math.round(JSON.stringify(result).length / 1024) + 'KB',
+        エラー数: result.ai_processing.errors_occurred.length
+    });
+    
+    return result;
 }
 
 // AIを使った歯科カウンセリング内容妥当性検証
