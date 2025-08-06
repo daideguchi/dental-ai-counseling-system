@@ -1772,6 +1772,14 @@ function analyzeQuality(content, fileAnalysis) {
     const patientCount = conversations.filter(c => c.role === '患者').length;
     const doctorCount = conversations.filter(c => c.role === '医師').length;
     
+    // デバッグログ
+    console.log('📊 品質分析デバッグ:', {
+        totalConversations,
+        patientCount,
+        doctorCount,
+        conversations: conversations.slice(0, 3) // 最初の3つだけ表示
+    });
+    
     // コミュニケーション品質の計算
     const communicationQuality = Math.min(0.95, (totalConversations / 10) * 0.8 + 0.2);
     
@@ -1781,6 +1789,14 @@ function analyzeQuality(content, fileAnalysis) {
     
     // 治療同意可能性の計算
     const consentLikelihood = content.includes('分かりました') || content.includes('お願いします') ? 0.9 : 0.7;
+    
+    // 計算結果のログ
+    console.log('🔢 品質計算結果:', {
+        communicationQuality: Math.round(communicationQuality * 100) + '%',
+        patientUnderstanding: Math.round(patientUnderstanding * 100) + '%',
+        consentLikelihood: Math.round(consentLikelihood * 100) + '%',
+        balanceRatio
+    });
     
     // 改善提案の生成
     const improvements = [];
@@ -1827,6 +1843,17 @@ function displayResults(result) {
     soapElements.p.input.value = result.soap.P;
     
     // 分析結果表示
+    console.log('🖥️ UI表示する品質値:', {
+        communication_quality: result.quality.communication_quality,
+        patient_understanding: result.quality.patient_understanding,
+        treatment_consent_likelihood: result.quality.treatment_consent_likelihood,
+        calculated_display: {
+            communication: Math.round(result.quality.communication_quality * 100) + '%',
+            understanding: Math.round(result.quality.patient_understanding * 100) + '%',
+            consent: Math.round(result.quality.treatment_consent_likelihood * 100) + '%'
+        }
+    });
+    
     DOM.communicationScore().textContent = `${Math.round(result.quality.communication_quality * 100)}%`;
     DOM.understandingScore().textContent = `${Math.round(result.quality.patient_understanding * 100)}%`;
     DOM.consentScore().textContent = `${Math.round(result.quality.treatment_consent_likelihood * 100)}%`;
