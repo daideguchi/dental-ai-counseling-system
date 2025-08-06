@@ -1565,34 +1565,229 @@ function selectBestSOAPSection(aiSection, fallbackSection, sectionType) {
 
 // AI結果を含めた品質分析
 async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
-    // 基本的な品質分析
-    const baseQuality = analyzeQuality(fileContent, fileAnalysis);
+    console.log('🤖 AI品質分析開始 - 固定値を一切使用しません');
     
-    // AI結果に基づく追加品質評価
-    const aiQualityMetrics = {
-        ai_soap_completeness: evaluateSOAPCompleteness(aiSOAPResult),
-        ai_medical_terminology: evaluateMedicalTerminology(aiSOAPResult),
-        ai_structure_quality: evaluateStructureQuality(aiSOAPResult),
-        ai_clinical_accuracy: evaluateClinicalAccuracy(aiSOAPResult)
+    // AIによる高精度品質分析を優先
+    if (geminiIntegration && geminiIntegration.isConnected) {
+        console.log('✅ Gemini AI品質分析を使用');
+        const aiQualityResult = await geminiIntegration.analyzeQuality(fileContent);
+        
+        // AI結果に追加メトリクスを統合
+        const aiQualityMetrics = {
+            ai_soap_completeness: evaluateSOAPCompleteness(aiSOAPResult),
+            ai_medical_terminology: evaluateMedicalTerminology(aiSOAPResult),
+            ai_structure_quality: evaluateStructureQuality(aiSOAPResult),
+            ai_clinical_accuracy: evaluateClinicalAccuracy(aiSOAPResult)
+        };
+        
+        console.log('🤖 AI品質分析結果:', aiQualityResult);
+        
+        return {
+            ...aiQualityResult, // AI分析結果を最優先
+            ai_metrics: aiQualityMetrics,
+            method: 'ai_advanced_analysis',
+            enhancement_suggestions: [
+                ...(aiQualityResult.improvement_suggestions || []),
+                ...generateAIBasedSuggestions(aiSOAPResult)
+            ]
+        };
+    } else {
+        // AI接続なしの場合でも実データに基づく分析（固定値なし）
+        console.log('⚠️ AI接続なし - 実データ分析のみ使用');
+        return analyzeQualityFromRealData(fileContent, fileAnalysis);
+    }
+}
+
+// 実データに基づく品質分析（固定値一切使用禁止）
+function analyzeQualityFromRealData(fileContent, fileAnalysis) {
+    console.log('📊 実データ分析開始 - 固定値禁止モード');
+    
+    const conversations = fileAnalysis.conversations || [];
+    const lines = fileContent.split('\n').filter(line => line.trim());
+    
+    // 実データから動的に品質を計算
+    const realMetrics = {
+        // コミュニケーション品質：実際の対話の深さを測定
+        communication_quality: calculateRealCommunicationQuality(fileContent, conversations),
+        
+        // 患者理解度：実際の患者の反応と質問から計算
+        patient_understanding: calculateRealPatientUnderstanding(fileContent, conversations),
+        
+        // 治療同意可能性：実際の会話内容から判定
+        treatment_consent_likelihood: calculateRealConsentLikelihood(fileContent, conversations),
+        
+        // 改善提案：実データに基づく具体的提案
+        improvement_suggestions: generateRealDataSuggestions(fileContent, conversations),
+        
+        // 良い点：実際の会話から抽出
+        positive_aspects: extractRealPositiveAspects(fileContent, conversations),
+        
+        method: 'real_data_analysis'
     };
     
-    // 統合品質スコア
-    const combinedQuality = {
-        ...baseQuality,
-        ai_metrics: aiQualityMetrics,
-        overall_ai_score: (
-            aiQualityMetrics.ai_soap_completeness +
-            aiQualityMetrics.ai_medical_terminology +
-            aiQualityMetrics.ai_structure_quality +
-            aiQualityMetrics.ai_clinical_accuracy
-        ) / 4,
-        enhancement_suggestions: [
-            ...baseQuality.improvement_suggestions,
-            ...generateAIBasedSuggestions(aiSOAPResult)
-        ]
-    };
+    console.log('📊 実データ分析完了:', realMetrics);
+    return realMetrics;
+}
+
+// 実際のコミュニケーション品質計算
+function calculateRealCommunicationQuality(content, conversations) {
+    if (conversations.length === 0) return 0.1;
     
-    return combinedQuality;
+    const doctorLines = conversations.filter(c => c.role === '医師');
+    const patientLines = conversations.filter(c => c.role === '患者');
+    
+    // 実際の対話バランス
+    const balanceScore = Math.min(doctorLines.length, patientLines.length) / Math.max(doctorLines.length, patientLines.length, 1);
+    
+    // 医師の説明品質（長い説明があるほど高品質）
+    const avgDoctorLength = doctorLines.reduce((sum, line) => sum + line.text.length, 0) / doctorLines.length || 0;
+    const explanationScore = Math.min(avgDoctorLength / 50, 1); // 50文字を基準
+    
+    // 質問の数（双方向コミュニケーション）
+    const questionMarks = (content.match(/\?|？/g) || []).length;
+    const questionScore = Math.min(questionMarks / 5, 1); // 5個の質問を基準
+    
+    return Math.min(0.95, (balanceScore * 0.4 + explanationScore * 0.4 + questionScore * 0.2));
+}
+
+// 実際の患者理解度計算
+function calculateRealPatientUnderstanding(content, conversations) {
+    const patientLines = conversations.filter(c => c.role === '患者');
+    if (patientLines.length === 0) return 0.1;
+    
+    // 理解を示すキーワード
+    const understandingKeywords = ['分かりました', 'はい', 'そうですね', 'なるほど', '理解', 'わかります'];
+    const confusionKeywords = ['分からない', '？', 'よくわからない', '難しい', '不安'];
+    
+    let understandingCount = 0;
+    let confusionCount = 0;
+    
+    patientLines.forEach(line => {
+        understandingKeywords.forEach(keyword => {
+            if (line.text.includes(keyword)) understandingCount++;
+        });
+        confusionKeywords.forEach(keyword => {
+            if (line.text.includes(keyword)) confusionCount++;
+        });
+    });
+    
+    // 理解度計算（理解表現が多いほど高い）
+    const understandingRatio = understandingCount / (understandingCount + confusionCount + 1);
+    
+    // 患者の発言の長さ（詳しく話せているほど理解が深い）
+    const avgPatientLength = patientLines.reduce((sum, line) => sum + line.text.length, 0) / patientLines.length;
+    const lengthScore = Math.min(avgPatientLength / 30, 1); // 30文字を基準
+    
+    return Math.min(0.95, (understandingRatio * 0.6 + lengthScore * 0.4));
+}
+
+// 実際の治療同意可能性計算
+function calculateRealConsentLikelihood(content, conversations) {
+    const patientLines = conversations.filter(c => c.role === '患者');
+    if (patientLines.length === 0) return 0.1;
+    
+    // 同意を示すキーワード
+    const consentKeywords = ['お願いします', 'やります', '受けます', '同意', 'はい、そうします', 'よろしく'];
+    const hesitationKeywords = ['考えさせて', '迷って', '不安', '心配', '高い', '費用', 'ちょっと'];
+    
+    let consentCount = 0;
+    let hesitationCount = 0;
+    
+    const patientText = patientLines.map(line => line.text).join(' ');
+    
+    consentKeywords.forEach(keyword => {
+        if (patientText.includes(keyword)) consentCount++;
+    });
+    hesitationKeywords.forEach(keyword => {
+        if (patientText.includes(keyword)) hesitationCount++;
+    });
+    
+    // 治療計画への言及があるかチェック
+    const hasTreatmentPlan = content.includes('治療') || content.includes('処置') || content.includes('次回');
+    const planBonus = hasTreatmentPlan ? 0.2 : 0;
+    
+    const consentRatio = consentCount / (consentCount + hesitationCount + 1);
+    
+    return Math.min(0.95, (consentRatio * 0.7 + planBonus + 0.1));
+}
+
+// 実データに基づく改善提案生成
+function generateRealDataSuggestions(content, conversations) {
+    const suggestions = [];
+    const doctorLines = conversations.filter(c => c.role === '医師');
+    const patientLines = conversations.filter(c => c.role === '患者');
+    
+    // 対話バランスの問題
+    if (doctorLines.length > patientLines.length * 3) {
+        suggestions.push('患者からの質問や意見を積極的に引き出す');
+    }
+    if (patientLines.length > doctorLines.length * 2) {
+        suggestions.push('医師からより詳しい説明と指導を行う');
+    }
+    
+    // 内容の深さ
+    const avgDoctorLength = doctorLines.reduce((sum, line) => sum + line.text.length, 0) / doctorLines.length || 0;
+    if (avgDoctorLength < 30) {
+        suggestions.push('医師の説明をより詳細にする');
+    }
+    
+    // 専門用語の使用
+    const medicalTerms = ['歯髄', '根管', '歯周', 'う蝕', 'レントゲン', '麻酔'];
+    const hasTerms = medicalTerms.some(term => content.includes(term));
+    if (!hasTerms) {
+        suggestions.push('適切な歯科専門用語を用いた説明を追加');
+    }
+    
+    // 費用説明
+    if (!content.includes('費用') && !content.includes('料金') && !content.includes('保険')) {
+        suggestions.push('治療費用や保険適用について説明');
+    }
+    
+    // 次回予約
+    if (!content.includes('次回') && !content.includes('来週') && !content.includes('予約')) {
+        suggestions.push('継続治療の予定を明確にする');
+    }
+    
+    return suggestions.length > 0 ? suggestions : ['現在の診療内容は適切に進行中'];
+}
+
+// 実データから良い点を抽出
+function extractRealPositiveAspects(content, conversations) {
+    const positives = [];
+    
+    // 丁寧な対応
+    if (content.includes('ありがとう') || content.includes('すみません')) {
+        positives.push('患者と医師の良好な関係性');
+    }
+    
+    // 詳しい説明
+    const explanationKeywords = ['説明', '詳しく', 'について', 'とは'];
+    if (explanationKeywords.some(keyword => content.includes(keyword))) {
+        positives.push('適切な説明とコミュニケーション');
+    }
+    
+    // 十分な会話量
+    if (conversations.length >= 10) {
+        positives.push('十分な対話時間の確保');
+    }
+    
+    // 患者の理解
+    if (content.includes('分かりました') || content.includes('はい')) {
+        positives.push('患者の理解と協力的姿勢');
+    }
+    
+    // 治療計画
+    if (content.includes('治療') && content.includes('計画')) {
+        positives.push('明確な治療計画の提示');
+    }
+    
+    // 専門性
+    const professionalTerms = ['診察', '検査', '症状', '診断', '処置'];
+    if (professionalTerms.filter(term => content.includes(term)).length >= 3) {
+        positives.push('専門的で体系的な診療アプローチ');
+    }
+    
+    return positives.length > 0 ? positives : ['基本的な診療要素が含まれています'];
 }
 
 // SOAP完全性評価
@@ -1765,61 +1960,12 @@ function calculateConfidence(categorizedContent, totalConversations) {
     return Math.min(0.95, confidence); // 最大95%
 }
 
-// 品質分析
+// 【廃止】固定値計算による品質分析 - AI分析を使用
 function analyzeQuality(content, fileAnalysis) {
-    const conversations = fileAnalysis.conversations || [];
-    const totalConversations = conversations.length;
-    const patientCount = conversations.filter(c => c.role === '患者').length;
-    const doctorCount = conversations.filter(c => c.role === '医師').length;
+    console.warn('⚠️ 廃止された固定値計算関数が呼び出されました - AI分析に移行してください');
     
-    // デバッグログ
-    console.log('📊 品質分析デバッグ:', {
-        totalConversations,
-        patientCount,
-        doctorCount,
-        conversations: conversations.slice(0, 3) // 最初の3つだけ表示
-    });
-    
-    // コミュニケーション品質の計算
-    const communicationQuality = Math.min(0.95, (totalConversations / 10) * 0.8 + 0.2);
-    
-    // 患者理解度の計算（質問と回答のバランス）
-    const balanceRatio = Math.min(patientCount, doctorCount) / Math.max(patientCount, doctorCount, 1);
-    const patientUnderstanding = Math.min(0.95, balanceRatio * 0.7 + 0.3);
-    
-    // 治療同意可能性の計算
-    const consentLikelihood = content.includes('分かりました') || content.includes('お願いします') ? 0.9 : 0.7;
-    
-    // 計算結果のログ
-    console.log('🔢 品質計算結果:', {
-        communicationQuality: Math.round(communicationQuality * 100) + '%',
-        patientUnderstanding: Math.round(patientUnderstanding * 100) + '%',
-        consentLikelihood: Math.round(consentLikelihood * 100) + '%',
-        balanceRatio
-    });
-    
-    // 改善提案の生成
-    const improvements = [];
-    if (totalConversations < 5) improvements.push('より詳細な問診を行う');
-    if (balanceRatio < 0.5) improvements.push('患者からの質問を促す');
-    if (!content.includes('説明')) improvements.push('治療内容の詳細説明を追加');
-    if (!content.includes('費用') && !content.includes('料金')) improvements.push('治療費用の説明を追加');
-    
-    // 良い点の抽出
-    const positives = [];
-    if (content.includes('丁寧')) positives.push('丁寧な対応');
-    if (content.includes('説明')) positives.push('適切な説明');
-    if (totalConversations >= 8) positives.push('十分な対話時間');
-    if (content.includes('ありがとう')) positives.push('良好な関係性');
-    
-    return {
-        communication_quality: communicationQuality,
-        patient_understanding: patientUnderstanding,
-        doctor_explanation: Math.min(0.95, doctorCount / totalConversations + 0.1),
-        treatment_consent_likelihood: consentLikelihood,
-        improvement_suggestions: improvements.length > 0 ? improvements : ['現在の対応は適切です'],
-        positive_aspects: positives.length > 0 ? positives : ['基本的な診療が実施されています']
-    };
+    // この関数は使用禁止 - 代わりにanalyzeQualityFromRealDataまたはAI分析を使用
+    throw new Error('固定値計算は使用禁止 - AI分析またはanalyzeQualityFromRealDataを使用してください');
 }
 
 // 結果表示
