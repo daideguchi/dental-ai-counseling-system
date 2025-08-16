@@ -247,6 +247,28 @@ function bindEvents() {
         newProcessBtn.addEventListener('click', resetApp);
     }
     
+    // ナビゲーションボタン
+    const backToResultsBtn = document.getElementById('back-to-results');
+    if (backToResultsBtn) {
+        backToResultsBtn.addEventListener('click', () => showStep(3));
+    }
+    
+    const startNewAnalysisBtn = document.getElementById('start-new-analysis');
+    if (startNewAnalysisBtn) {
+        startNewAnalysisBtn.addEventListener('click', resetApp);
+    }
+    
+    const viewHistoryBtn = document.getElementById('view-history');
+    if (viewHistoryBtn) {
+        viewHistoryBtn.addEventListener('click', showHistory);
+    }
+    
+    // 既存の新規解析ボタン
+    const newAnalysisBtn = document.getElementById('new-analysis');
+    if (newAnalysisBtn) {
+        newAnalysisBtn.addEventListener('click', resetApp);
+    }
+    
     const showHistoryBtn = document.getElementById('show-history-btn');
     if (showHistoryBtn) {
         showHistoryBtn.addEventListener('click', showHistory);
@@ -2692,6 +2714,26 @@ function displayResults(result) {
     if (evalUnder) evalUnder.textContent = `${Math.round((optimizedResult.quality.patient_understanding || 0) * 100)}%`;
     if (evalConsent) evalConsent.textContent = `${Math.round((optimizedResult.quality.treatment_consent_likelihood || 0) * 100)}%`;
     
+    // 3.1. 評価根拠説明表示
+    const reasoningComm = document.getElementById('reasoning-communication');
+    const reasoningUnder = document.getElementById('reasoning-understanding');
+    const reasoningConsent = document.getElementById('reasoning-consent');
+    
+    if (reasoningComm) {
+        reasoningComm.textContent = optimizedResult.quality.success_possibility_reasoning || 
+            optimizedResult.quality.communication_quality_reasoning || 
+            '根拠データが利用できません';
+    }
+    if (reasoningUnder) {
+        reasoningUnder.textContent = optimizedResult.quality.patient_understanding_reasoning || 
+            '根拠データが利用できません';
+    }
+    if (reasoningConsent) {
+        reasoningConsent.textContent = optimizedResult.quality.treatment_consent_reasoning || 
+            optimizedResult.quality.treatment_consent_likelihood_reasoning || 
+            '根拠データが利用できません';
+    }
+    
     // 4. 処理ログ表示（最適化されたログ使用）
     const processLogEl = document.getElementById('process-log-display');
     if (processLogEl) {
@@ -2965,6 +3007,17 @@ function displaySaveSuccess(jsonlRecord) {
         saveStatusEl.innerHTML = '<span>保存状況: 保存完了</span>';
         saveStatusEl.classList.add('saved');
     }
+    
+    // ステップ4の詳細情報を更新
+    const sessionIdEl = document.getElementById('saved-session-id');
+    const patientNameEl = document.getElementById('saved-patient-name');
+    const timestampEl = document.getElementById('saved-timestamp');
+    const sizeEl = document.getElementById('saved-size');
+    
+    if (sessionIdEl) sessionIdEl.textContent = jsonlRecord.session_id;
+    if (patientNameEl) patientNameEl.textContent = jsonlRecord.processed_data.identification.patient_name || '不明';
+    if (timestampEl) timestampEl.textContent = new Date().toLocaleString('ja-JP');
+    if (sizeEl) sizeEl.textContent = `${Math.round(JSON.stringify(jsonlRecord).length / 1024)}KB`;
     
     const processedData = jsonlRecord.processed_data;
     const originalData = jsonlRecord.original_data;

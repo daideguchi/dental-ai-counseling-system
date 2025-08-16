@@ -70,6 +70,119 @@
     display: flex;
     gap: 15px;
     flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+/* 評価根拠説明セクション */
+.evaluation-reasoning {
+    margin-top: 20px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 20px;
+}
+
+.reasoning-section {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8fafc;
+    border-left: 4px solid #3b82f6;
+    border-radius: 4px;
+}
+
+.reasoning-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: #1e40af;
+    font-weight: 600;
+}
+
+.reasoning-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #374151;
+    white-space: pre-line;
+    font-family: 'SF Mono', 'Monaco', monospace;
+}
+
+/* ステップ4: 保存完了のスタイル */
+.success-header {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.success-header h2 {
+    color: white;
+    margin: 0;
+}
+
+.success-header p {
+    color: rgba(255, 255, 255, 0.9);
+    margin: 8px 0 0 0;
+}
+
+.save-success-content {
+    padding: 20px;
+}
+
+.save-status-section,
+.download-section,
+.next-actions {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.save-status-section:last-child,
+.download-section:last-child,
+.next-actions:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.save-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 14px;
+}
+
+.detail-value {
+    font-family: 'SF Mono', 'Monaco', monospace;
+    color: #1f2937;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.download-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+    .save-details {
+        grid-template-columns: 1fr;
+    }
+    
+    .download-buttons {
+        flex-direction: column;
+    }
 }
 
 .eval-item {

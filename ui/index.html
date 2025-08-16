@@ -267,6 +267,22 @@ A: 色と形で、特に右上1番です。</code></pre>
                             <span id="eval-consent">-%</span>
                         </div>
                     </div>
+                    
+                    <!-- 評価根拠説明 -->
+                    <div class="evaluation-reasoning">
+                        <div class="reasoning-section">
+                            <h4>📊 成約可能性の根拠</h4>
+                            <div id="reasoning-communication" class="reasoning-text">分析中...</div>
+                        </div>
+                        <div class="reasoning-section">
+                            <h4>🧠 患者理解度の根拠</h4>
+                            <div id="reasoning-understanding" class="reasoning-text">分析中...</div>
+                        </div>
+                        <div class="reasoning-section">
+                            <h4>✅ 治療同意の根拠</h4>
+                            <div id="reasoning-consent" class="reasoning-text">分析中...</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 4. DB保存 -->
@@ -295,6 +311,62 @@ A: 色と形で、特に右上1番です。</code></pre>
                     <button id="export-data" class="secondary-btn">
                         <i class="fas fa-download"></i> データ出力
                     </button>
+                </div>
+            </div>
+
+            <!-- Step 4: 保存完了 -->
+            <div class="step-content" id="step-4" style="display: none;">
+                <div class="card">
+                    <div class="card-header success-header">
+                        <h2><i class="fas fa-check-circle"></i> 保存完了</h2>
+                        <p>SOAP記録が正常に保存されました</p>
+                    </div>
+                    
+                    <div class="save-success-content">
+                        <div class="save-status-section">
+                            <h3>💾 保存情報</h3>
+                            <div id="save-details" class="save-details">
+                                <div class="detail-item">
+                                    <span class="detail-label">セッションID:</span>
+                                    <span id="saved-session-id" class="detail-value">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">患者名:</span>
+                                    <span id="saved-patient-name" class="detail-value">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">保存日時:</span>
+                                    <span id="saved-timestamp" class="detail-value">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">データサイズ:</span>
+                                    <span id="saved-size" class="detail-value">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="download-section">
+                            <h3>📥 ダウンロード</h3>
+                            <div id="save-summary" class="download-buttons">
+                                <!-- ダウンロードボタンが動的に追加されます -->
+                            </div>
+                        </div>
+                        
+                        <div class="next-actions">
+                            <h3>🎯 次のアクション</h3>
+                            <div class="action-buttons">
+                                <button id="back-to-results" class="primary-btn">
+                                    <i class="fas fa-arrow-left"></i> 結果に戻る
+                                </button>
+                                <button id="start-new-analysis" class="secondary-btn">
+                                    <i class="fas fa-plus"></i> 新しい解析を開始
+                                </button>
+                                <button id="view-history" class="secondary-btn">
+                                    <i class="fas fa-history"></i> 履歴を確認
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
