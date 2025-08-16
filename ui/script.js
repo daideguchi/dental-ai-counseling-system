@@ -781,58 +781,65 @@ async function processWithAI(fileContent, file) {
     addProcessingLog('🤖 AIが会話内容を詳しく分析しています', 'info');
     addProcessingLog(`📂 対象ファイル: ${file.name}（サイズ: ${Math.round(file.size/1024)}KB）`, 'info');
     
-    // 4. 患者・医師識別（安全なルールベース優先）
+    // 4. 患者・医師識別（OpenAI GPT-4.1優先）
     addProcessingLog('👥 会話の中から患者さんと医師を識別しています', 'info');
     let enhancedIdentification;
     let aiIdentification = null;
     let fallbackIdentification = null;
     
-    if (geminiIntegration && geminiIntegration.isConnected) {
-        // AI APIが接続されている場合のみAI識別を使用
-        addProcessingLog('🤖 AIが話者を自動識別しています', 'info');
-        try {
-            aiIdentification = await geminiIntegration.identifyPatientDoctor(fileContent);
-            addProcessingLog(`✅ AIが識別しました: 患者さん「${aiIdentification.patient_name}」、医師「${aiIdentification.doctor_name}」`, 'success');
-        } catch (error) {
-            addProcessingLog(`❌ AI識別エラー: ${error.message}`, 'error');
-            aiIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0 };
-        }
+    // 1. OpenAI GPT-4.1による高精度話者識別を最優先
+    try {
+        addProcessingLog('🚀 OpenAI GPT-4.1による高精度話者識別を実行', 'info');
+        aiIdentification = await callOpenAIAnalysis(fileContent, 'identification');
+        addProcessingLog(`✅ OpenAI GPT-4.1が識別しました: 患者さん「${aiIdentification.patient_name}」、医師「${aiIdentification.doctor_name}」`, 'success');
         
-        // ルールベース解析（品質検証用）
-        addProcessingLog('📋 会話パターンから話者を推定しています', 'info');
-        try {
-            fallbackIdentification = identifyPatientDoctor(fileContent);
-            addProcessingLog(`✅ パターン分析で識別しました: 患者さん「${fallbackIdentification.patient_name}」、医師「${fallbackIdentification.doctor_name}」`, 'success');
-        } catch (error) {
-            addProcessingLog(`❌ ルールベース識別エラー: ${error.message}`, 'error');
-            fallbackIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0 };
-        }
+    } catch (openaiError) {
+        console.warn('⚠️ OpenAI識別失敗、Geminiにフォールバック:', openaiError);
+        addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
         
-        // 結果の統合
-        addProcessingLog('🔀 識別結果を整理しています', 'info');
-        enhancedIdentification = mergeIdentificationResults(aiIdentification, fallbackIdentification);
-        addProcessingLog(`✅ 最終結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'success');
-    } else {
-        // AI APIがオフラインの場合は信頼性の高いルールベースのみを使用
-        addProcessingLog('📋 AIが使用できないため、パターン分析で識別します', 'warning');
-        try {
-            fallbackIdentification = identifyPatientDoctor(fileContent);
-            enhancedIdentification = fallbackIdentification;
-            enhancedIdentification.method = 'rules_only_safe';
-            addProcessingLog(`✅ パターン分析結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'success');
-        } catch (error) {
-            addProcessingLog(`❌ ルールベース識別エラー: ${error.message}`, 'error');
-            enhancedIdentification = { 
-                patient_name: '患者', 
-                doctor_name: '医師', 
-                confidence: 0.1, 
-                method: 'fallback_default',
-                error: error.message 
-            };
+        // 2. フォールバック: Gemini API
+        if (geminiIntegration && geminiIntegration.isConnected) {
+            addProcessingLog('🤖 Gemini AIが話者を自動識別しています', 'info');
+            try {
+                aiIdentification = await geminiIntegration.identifyPatientDoctor(fileContent);
+                addProcessingLog(`✅ Gemini AIが識別しました: 患者さん「${aiIdentification.patient_name}」、医師「${aiIdentification.doctor_name}」`, 'success');
+            } catch (error) {
+                addProcessingLog(`❌ Gemini AI識別エラー: ${error.message}`, 'error');
+                aiIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0, model: 'gemini-failed' };
+            }
+        } else {
+            console.log('⚠️ Gemini APIも利用不可');
+            aiIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0, model: 'none' };
         }
     }
     
-    // 5. AI による SOAP変換（統合識別結果を使用）
+    // 3. ルールベース解析（品質検証用）
+    addProcessingLog('📋 会話パターンから話者を推定しています', 'info');
+    try {
+        fallbackIdentification = identifyPatientDoctor(fileContent);
+        addProcessingLog(`✅ パターン分析で識別しました: 患者さん「${fallbackIdentification.patient_name}」、医師「${fallbackIdentification.doctor_name}」`, 'success');
+    } catch (error) {
+        addProcessingLog(`❌ ルールベース識別エラー: ${error.message}`, 'error');
+        fallbackIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0 };
+    }
+    
+    // 4. 結果の統合（AI結果を優先）
+    addProcessingLog('🔀 識別結果を整理しています', 'info');
+    if (aiIdentification && aiIdentification.confidence > 0.5) {
+        // AI識別が高信頼度の場合はAI結果を採用
+        enhancedIdentification = {
+            ...aiIdentification,
+            method: aiIdentification.model === 'gpt-4.1' ? 'openai_gpt41_priority' : 'gemini_priority',
+            fallback_result: fallbackIdentification
+        };
+    } else {
+        // AI識別が低信頼度の場合は統合処理
+        enhancedIdentification = mergeIdentificationResults(aiIdentification, fallbackIdentification);
+    }
+    
+    addProcessingLog(`✅ 最終結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'success');
+    
+    // 5. AI による SOAP変換（OpenAI GPT-4.1優先）
     addProcessingLog('📋 会話内容を医療記録（SOAP形式）に変換しています', 'info');
     let soapResult = null;
     let fallbackSOAP = null;
@@ -840,33 +847,62 @@ async function processWithAI(fileContent, file) {
     
     addProcessingLog(`👥 識別結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'info');
     
-    if (geminiIntegration && geminiIntegration.isConnected) {
-        addProcessingLog('🤖 AIが会話内容を医療記録に変換しています', 'info');
+    // 1. OpenAI GPT-4.1による高精度SOAP変換を最優先
+    try {
+        addProcessingLog('🚀 OpenAI GPT-4.1による高精度SOAP変換を実行', 'info');
+        console.log('🚀 DEBUG: OpenAI SOAP変換開始');
         console.log('🚀 DEBUG: 患者名:', enhancedIdentification.patient_name);
         console.log('🚀 DEBUG: 医師名:', enhancedIdentification.doctor_name);
-        try {
-            soapResult = await geminiIntegration.convertToSOAP(
-                fileContent, 
-                enhancedIdentification.patient_name, 
-                enhancedIdentification.doctor_name
-            );
-            console.log('🚀 DEBUG: convertToSOAP応答受信:', soapResult);
-            console.log('✅ AI SOAP変換完了:', {
-                S_length: soapResult?.S?.length || 0,
-                O_length: soapResult?.O?.length || 0,
-                A_length: soapResult?.A?.length || 0,
-                P_length: soapResult?.P?.length || 0,
-                confidence: soapResult?.confidence || 0
-            });
-        } catch (error) {
-            console.error('❌ AI SOAP変換エラー:', error);
-            console.error('❌ AI SOAP変換エラー詳細:', error.message, error.stack);
-            soapResult = { S: '', O: '', A: '', P: '', confidence: 0, error: error.message };
+        
+        soapResult = await callOpenAIAnalysis(fileContent, 'soap', {
+            patient_name: enhancedIdentification.patient_name,
+            doctor_name: enhancedIdentification.doctor_name
+        });
+        
+        console.log('🚀 DEBUG: OpenAI SOAP変換応答受信:', soapResult);
+        console.log('✅ OpenAI SOAP変換完了:', {
+            S_length: soapResult?.S?.length || 0,
+            O_length: soapResult?.O?.length || 0,
+            A_length: soapResult?.A?.length || 0,
+            P_length: soapResult?.P?.length || 0,
+            confidence: soapResult?.confidence || 0,
+            model: 'gpt-4.1'
+        });
+        
+        addProcessingLog('✅ OpenAI GPT-4.1による高精度SOAP変換完了', 'success');
+        
+    } catch (openaiError) {
+        console.warn('⚠️ OpenAI SOAP変換失敗、Geminiにフォールバック:', openaiError);
+        addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
+        
+        // 2. フォールバック: Gemini API
+        if (geminiIntegration && geminiIntegration.isConnected) {
+            addProcessingLog('🤖 Gemini AIが会話内容を医療記録に変換しています', 'info');
+            try {
+                soapResult = await geminiIntegration.convertToSOAP(
+                    fileContent, 
+                    enhancedIdentification.patient_name, 
+                    enhancedIdentification.doctor_name
+                );
+                console.log('🚀 DEBUG: Gemini SOAP変換応答受信:', soapResult);
+                console.log('✅ Gemini SOAP変換完了:', {
+                    S_length: soapResult?.S?.length || 0,
+                    O_length: soapResult?.O?.length || 0,
+                    A_length: soapResult?.A?.length || 0,
+                    P_length: soapResult?.P?.length || 0,
+                    confidence: soapResult?.confidence || 0,
+                    model: 'gemini-1.5-flash'
+                });
+            } catch (error) {
+                console.error('❌ Gemini SOAP変換エラー:', error);
+                console.error('❌ Gemini SOAP変換エラー詳細:', error.message, error.stack);
+                soapResult = { S: '', O: '', A: '', P: '', confidence: 0, error: error.message, model: 'gemini-failed' };
+            }
+        } else {
+            console.log('⚠️ DEBUG: AI SOAP変換スキップ - geminiIntegration:', !!geminiIntegration, 'isConnected:', geminiIntegration?.isConnected);
+            console.log('⏭️ AI SOAP変換スキップ（API未接続）');
+            soapResult = { S: '', O: '', A: '', P: '', confidence: 0, method: 'api_offline', model: 'none' };
         }
-    } else {
-        console.log('⚠️ DEBUG: AI SOAP変換スキップ - geminiIntegration:', !!geminiIntegration, 'isConnected:', geminiIntegration?.isConnected);
-        console.log('⏭️ AI SOAP変換スキップ（API未接続）');
-        soapResult = { S: '', O: '', A: '', P: '', confidence: 0, method: 'api_offline' };
     }
     
     // 6. ルールベースSOAP変換（フォールバック用）
@@ -2046,17 +2082,16 @@ function selectBestSOAPSection(aiSection, fallbackSection, sectionType) {
     return aiSection || fallbackSection || `${sectionType}の詳細な記録が必要です。`;
 }
 
-// AI結果を含めた品質分析
+// AI結果を含めた品質分析（OpenAI GPT-4.1優先）
 async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
-    console.log('🤖 AI品質分析開始 - 固定値を一切使用しません');
+    console.log('🤖 AI品質分析開始 - OpenAI GPT-4.1による高精度分析');
     
-    // AIによる高精度品質分析を優先
-    if (geminiIntegration && geminiIntegration.isConnected) {
-        console.log('✅ Gemini AI品質分析を使用');
-        const aiQualityResult = await geminiIntegration.analyzeQuality(fileContent);
+    // 1. OpenAI GPT-4.1を最優先で使用
+    try {
+        console.log('🚀 OpenAI GPT-4.1品質分析を使用');
+        const openaiQualityResult = await callOpenAIAnalysis(fileContent, 'quality');
         
-        // 実データ分析も併用して根拠説明を追加
-        const realDataAnalysis = analyzeQualityFromRealData(fileContent, fileAnalysis);
+        console.log('🤖 OpenAI品質分析結果:', openaiQualityResult);
         
         // AI結果に追加メトリクスを統合
         const aiQualityMetrics = {
@@ -2066,30 +2101,91 @@ async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
             ai_clinical_accuracy: evaluateClinicalAccuracy(aiSOAPResult)
         };
         
-        console.log('🤖 AI品質分析結果:', aiQualityResult);
-        console.log('📊 実データ分析結果（根拠用）:', realDataAnalysis);
-        
         return {
-            ...aiQualityResult, // AI分析結果を最優先
-            // 実データ分析からの根拠説明を追加
-            success_possibility_reasoning: realDataAnalysis.success_possibility_reasoning,
-            patient_understanding_reasoning: realDataAnalysis.patient_understanding_reasoning,
-            treatment_consent_reasoning: realDataAnalysis.treatment_consent_reasoning,
-            success_possibility_breakdown: realDataAnalysis.success_possibility_breakdown,
-            patient_understanding_breakdown: realDataAnalysis.patient_understanding_breakdown,
-            treatment_consent_breakdown: realDataAnalysis.treatment_consent_breakdown,
+            ...openaiQualityResult, // OpenAI分析結果を最優先
             ai_metrics: aiQualityMetrics,
-            method: 'ai_with_detailed_reasoning',
-            enhancement_suggestions: [
-                ...(aiQualityResult.improvement_suggestions || []),
-                ...generateAIBasedSuggestions(aiSOAPResult)
-            ]
+            method: 'openai_gpt41_structured_analysis',
+            model_used: 'gpt-4.1'
         };
-    } else {
-        // AI接続なしの場合でも実データに基づく分析（固定値なし）
-        console.log('⚠️ AI接続なし - 実データ分析のみ使用');
-        return analyzeQualityFromRealData(fileContent, fileAnalysis);
+        
+    } catch (openaiError) {
+        console.warn('⚠️ OpenAI分析失敗、Geminiにフォールバック:', openaiError);
+        
+        // 2. フォールバック: Gemini AI
+        if (geminiIntegration && geminiIntegration.isConnected) {
+            console.log('✅ Gemini AI品質分析を使用（フォールバック）');
+            const aiQualityResult = await geminiIntegration.analyzeQuality(fileContent);
+            
+            // 実データ分析も併用して根拠説明を追加
+            const realDataAnalysis = analyzeQualityFromRealData(fileContent, fileAnalysis);
+            
+            // AI結果に追加メトリクスを統合
+            const aiQualityMetrics = {
+                ai_soap_completeness: evaluateSOAPCompleteness(aiSOAPResult),
+                ai_medical_terminology: evaluateMedicalTerminology(aiSOAPResult),
+                ai_structure_quality: evaluateStructureQuality(aiSOAPResult),
+                ai_clinical_accuracy: evaluateClinicalAccuracy(aiSOAPResult)
+            };
+            
+            console.log('🤖 Gemini品質分析結果:', aiQualityResult);
+            console.log('📊 実データ分析結果（根拠用）:', realDataAnalysis);
+            
+            return {
+                ...aiQualityResult, // AI分析結果を最優先
+                // 実データ分析からの根拠説明を追加
+                success_possibility_reasoning: realDataAnalysis.success_possibility_reasoning,
+                patient_understanding_reasoning: realDataAnalysis.patient_understanding_reasoning,
+                treatment_consent_reasoning: realDataAnalysis.treatment_consent_reasoning,
+                success_possibility_breakdown: realDataAnalysis.success_possibility_breakdown,
+                patient_understanding_breakdown: realDataAnalysis.patient_understanding_breakdown,
+                treatment_consent_breakdown: realDataAnalysis.treatment_consent_breakdown,
+                ai_metrics: aiQualityMetrics,
+                method: 'gemini_with_detailed_reasoning',
+                model_used: 'gemini-1.5-flash',
+                enhancement_suggestions: [
+                    ...(aiQualityResult.improvement_suggestions || []),
+                    ...generateAIBasedSuggestions(aiSOAPResult)
+                ]
+            };
+        } else {
+            // 3. 最終フォールバック: 実データ分析のみ
+            console.log('⚠️ AI接続なし - 実データ分析のみ使用');
+            return analyzeQualityFromRealData(fileContent, fileAnalysis);
+        }
     }
+}
+
+// OpenAI API呼び出し関数
+async function callOpenAIAnalysis(content, type, additionalData = {}) {
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const endpoint = isProduction ? '/api/openai_analysis' : 'http://localhost:8001/api/openai_analysis';
+    
+    const requestData = {
+        content: content,
+        type: type,
+        ...additionalData
+    };
+    
+    console.log('🔗 OpenAI API呼び出し:', { endpoint, type, contentLength: content.length });
+    
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-API-Version': '2024-01'
+        },
+        body: JSON.stringify(requestData)
+    });
+    
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenAI API Error ${response.status}: ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('✅ OpenAI API応答:', result);
+    
+    return result;
 }
 
 // 実データに基づく品質分析（固定値一切使用禁止）
