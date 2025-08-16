@@ -1,6 +1,18 @@
 {
   "functions": {
-    "api/*.py": {
+    "api/health.py": {
+      "runtime": "python3.9",
+      "maxDuration": 30
+    },
+    "api/identify.py": {
+      "runtime": "python3.9", 
+      "maxDuration": 30
+    },
+    "api/soap.py": {
+      "runtime": "python3.9",
+      "maxDuration": 30
+    },
+    "api/quality.py": {
       "runtime": "python3.9",
       "maxDuration": 30
     }
