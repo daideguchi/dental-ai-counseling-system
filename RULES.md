@@ -1,1 +1,0 @@
-/Users/dd/Desktop/1_dev/coding-rule2/RULES.md
