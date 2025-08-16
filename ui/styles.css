@@ -2648,3 +2648,151 @@ body {
     background: #fef2f2;
     border-left-color: #dc2626;
 }
+
+/* 保存プレビューテーブル */
+.table-preview-section {
+    margin-bottom: 24px;
+}
+
+.table-container {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--gray-300);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    font-size: 0.9rem;
+}
+
+.preview-table th {
+    background: var(--gray-50);
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--gray-700);
+    border-bottom: 2px solid var(--gray-200);
+}
+
+.preview-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--gray-200);
+    vertical-align: top;
+}
+
+.preview-table tr:last-child td {
+    border-bottom: none;
+}
+
+.preview-table tr:hover {
+    background: var(--gray-50);
+}
+
+.soap-cell {
+    max-width: 300px;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+/* 編集可能メッセージセクション */
+.editable-message-section {
+    margin-bottom: 24px;
+}
+
+.editable-message {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--gray-300);
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s ease;
+}
+
+.editable-message:focus {
+    outline: none;
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 保存完了メッセージ */
+.save-completion {
+    margin-top: 24px;
+}
+
+.success-message {
+    text-align: center;
+    padding: 32px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 2px solid #16a34a;
+    border-radius: 12px;
+}
+
+.success-message i {
+    font-size: 3rem;
+    color: #16a34a;
+    margin-bottom: 16px;
+}
+
+.success-message h4 {
+    color: #16a34a;
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+}
+
+.success-message p {
+    color: var(--gray-600);
+    margin-bottom: 24px;
+}
+
+.completion-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* 保存アクションボタン */
+.save-actions {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--gray-200);
+}
+
+#confirm-save {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+}
+
+#confirm-save:hover:not(:disabled) {
+    background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+    transform: translateY(-1px);
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .preview-table {
+        font-size: 0.8rem;
+    }
+    
+    .preview-table th,
+    .preview-table td {
+        padding: 8px;
+    }
+    
+    .soap-cell {
+        max-width: 200px;
+        font-size: 0.75rem;
+    }
+    
+    .completion-actions {
+        flex-direction: column;
+    }
+}

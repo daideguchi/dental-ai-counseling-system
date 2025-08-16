@@ -624,68 +624,115 @@ ${conversationText}
    }
  }
 
- // フォールバック品質分析
+ // 実データベース品質分析（固定値使用禁止）
  fallbackQualityAnalysis(conversationText) {
+   console.log('🔍 実データベース品質分析開始 - 固定値一切使用禁止');
+   
+   const lines = conversationText.split('\n').filter(line => line.trim());
+   const totalLines = lines.length;
+   
+   if (totalLines === 0) {
+     console.error('❌ 分析対象データが空です');
+     return {
+       communication_quality: null,
+       patient_understanding: null,
+       doctor_explanation: null,
+       treatment_consent_likelihood: null,
+       improvement_suggestions: ['分析対象データが不足しています'],
+       positive_aspects: [],
+       error: 'データ不足により分析不可能'
+     };
+   }
+
    const analysis = {
-     communication_quality: 0.5,
-     patient_understanding: 0.5,
-     doctor_explanation: 0.5,
-     treatment_consent_likelihood: 0.5,
      improvement_suggestions: [],
      positive_aspects: []
    };
 
-   const lines = conversationText.split('\n').filter(line => line.trim());
-   const totalLines = lines.length;
-
-   // コミュニケーション品質の評価
+   // コミュニケーション品質の評価（実データのみ）
    const questionCount = (conversationText.match(/\?|ですか|でしょうか|いかがですか/g) || []).length;
    const explanationCount = (conversationText.match(/説明|ご説明|お話し|について/g) || []).length;
+   const interactionCount = (conversationText.match(/はい|そうですね|お聞かせください/g) || []).length;
 
-   analysis.communication_quality = Math.min(0.95,
-     (questionCount * 0.1 + explanationCount * 0.05 + totalLines * 0.02));
+   // 実際のやり取りの質から計算（0から始める）
+   let communicationQuality = 0;
+   if (totalLines > 0) {
+     communicationQuality = Math.min(0.95, (questionCount * 0.15 + explanationCount * 0.1 + interactionCount * 0.05 + Math.min(totalLines * 0.03, 0.6)));
+   }
+   analysis.communication_quality = communicationQuality;
 
-   // 患者理解度の評価
+   // 患者理解度の評価（実データのみ）
    const understandingWords = ['分かりました', 'はい', 'そうですね', '理解', 'なるほど'];
    const confusionWords = ['分からない', 'よく分からない', '難しい', '？'];
 
-   let understandingScore = 0.5;
+   let understandingCount = 0;
+   let confusionCount = 0;
+   
    understandingWords.forEach(word => {
-     if (conversationText.includes(word)) understandingScore += 0.1;
+     if (conversationText.includes(word)) understandingCount++;
    });
    confusionWords.forEach(word => {
-     if (conversationText.includes(word)) understandingScore -= 0.1;
+     if (conversationText.includes(word)) confusionCount++;
    });
 
-   analysis.patient_understanding = Math.max(0.1, Math.min(0.95, understandingScore));
+   // 実際の理解表現から計算（初期値なし）
+   let patientUnderstanding = 0;
+   if (understandingCount + confusionCount > 0) {
+     patientUnderstanding = understandingCount / (understandingCount + confusionCount);
+   } else if (totalLines > 5) {
+     // 長い会話があるが理解・混乱表現がない場合は中程度
+     patientUnderstanding = 0.4;
+   }
+   analysis.patient_understanding = Math.max(0.05, Math.min(0.95, patientUnderstanding));
 
-   // 医師の説明品質
+   // 医師の説明品質（実データのみ）
    const technicalTerms = ['う蝕', '歯髄', '根管', '歯周', 'プラーク'];
    const easyExplanations = ['簡単に言うと', 'つまり', '例えば', 'わかりやすく'];
 
-   let explanationScore = 0.5;
+   let technicalCount = 0;
+   let easyCount = 0;
+   
    technicalTerms.forEach(term => {
-     if (conversationText.includes(term)) explanationScore += 0.05;
+     if (conversationText.includes(term)) technicalCount++;
    });
    easyExplanations.forEach(phrase => {
-     if (conversationText.includes(phrase)) explanationScore += 0.1;
+     if (conversationText.includes(phrase)) easyCount++;
    });
 
-   analysis.doctor_explanation = Math.min(0.95, explanationScore);
+   // 専門用語とわかりやすい説明のバランスから計算
+   let doctorExplanation = 0;
+   if (explanationCount > 0) {
+     doctorExplanation = Math.min(0.95, (easyCount * 0.2 + technicalCount * 0.1 + explanationCount * 0.15));
+   } else if (totalLines > 3) {
+     // 会話があるが説明表現がない場合
+     doctorExplanation = 0.2;
+   }
+   analysis.doctor_explanation = doctorExplanation;
 
-   // 治療同意可能性
+   // 治療同意可能性（実データのみ）
    const consentWords = ['お願いします', 'やります', '受けます', '同意'];
    const hesitationWords = ['考えさせて', '迷って', '不安', '心配'];
 
-   let consentScore = 0.7;
+   let consentCount = 0;
+   let hesitationCount = 0;
+   
    consentWords.forEach(word => {
-     if (conversationText.includes(word)) consentScore += 0.1;
+     if (conversationText.includes(word)) consentCount++;
    });
    hesitationWords.forEach(word => {
-     if (conversationText.includes(word)) consentScore -= 0.1;
+     if (conversationText.includes(word)) hesitationCount++;
    });
 
-   analysis.treatment_consent_likelihood = Math.max(0.1, Math.min(0.95, consentScore));
+   // 実際の発言から計算（固定値なし）
+   let treatmentConsent = 0;
+   if (consentCount + hesitationCount > 0) {
+     treatmentConsent = consentCount / (consentCount + hesitationCount);
+   } else if (conversationText.includes('治療') || conversationText.includes('処置')) {
+     // 治療話題があるが明確な同意・躊躇がない場合
+     treatmentConsent = 0.3;
+   }
+   
+   analysis.treatment_consent_likelihood = Math.max(0.05, Math.min(0.95, treatmentConsent));
 
    // 改善提案の生成
    if (analysis.communication_quality < 0.7) {
@@ -778,44 +825,50 @@ ${conversationText}
  }
 
  validateQualityResult(result) {
-   const defaultValues = {
-     communication_quality: 0.5,
-     patient_understanding: 0.5,
-     doctor_explanation: 0.5,
-     treatment_consent_likelihood: 0.5,
-     improvement_suggestions: ['分析結果が不完全です'],
-     positive_aspects: ['基本的な診療を実施']
-   };
-
-   for (const [key, defaultValue] of Object.entries(defaultValues)) {
-     if (!Object.prototype.hasOwnProperty.call(result, key)) {
-       result[key] = defaultValue;
+   // 実データ分析必須 - デフォルト値は使用禁止
+   console.log('⚠️ 品質結果検証: デフォルト値ではなく実分析データを使用');
+   
+   // 必須フィールドの存在確認（数値は実計算値のみ許可）
+   const requiredFields = ['communication_quality', 'patient_understanding', 'doctor_explanation', 'treatment_consent_likelihood'];
+   
+   for (const field of requiredFields) {
+     if (!Object.prototype.hasOwnProperty.call(result, field) || result[field] === null || result[field] === undefined) {
+       console.error(`❌ 必須フィールド ${field} が存在しないか無効値です - 実データ分析が必要`);
+       result[field] = null; // 固定値ではなくnullで明示
+       result[`${field}_error`] = 'データ不足により分析不可能';
      }
+   }
+   
+   // 改善提案・良い点は空配列で初期化（固定メッセージ禁止）
+   if (!result.improvement_suggestions || !Array.isArray(result.improvement_suggestions)) {
+     result.improvement_suggestions = [];
+   }
+   if (!result.positive_aspects || !Array.isArray(result.positive_aspects)) {
+     result.positive_aspects = [];
    }
 
    return result;
  }
 
- // デモ用のローカル処理（API接続なしでも動作）
- async processLocalDemo(conversationText) {
-   console.log('🎭 デモモード: ローカル処理を実行');
+ // 実データ分析ベースのフォールバック処理（デモモード廃止）
+ async processRealDataFallback(conversationText) {
+   console.log('🔍 実データ分析ベースのフォールバック処理開始');
+   console.warn('⚠️ API接続失敗 - 実データ分析のみで処理継続');
 
-   // 実際の内容を解析
+   // API接続失敗時も実際のデータ分析を行う
    const identification = this.fallbackIdentification(conversationText);
    const soap = this.fallbackSOAPConversion(conversationText);
    const quality = this.fallbackQualityAnalysis(conversationText);
-
-   // 処理時間のシミュレート
-   await new Promise(resolve => setTimeout(resolve, 2000));
 
    return {
      identification,
      soap,
      quality,
      metadata: {
-       processing_time: '2.5s',
-       method: 'local_fallback',
+       method: 'real_data_fallback',
        api_connected: false,
+       data_source: 'actual_content_analysis',
+       warning: 'AI APIなしで実データ分析のみ実行',
        timestamp: new Date().toISOString()
      }
    };

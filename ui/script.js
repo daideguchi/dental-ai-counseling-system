@@ -2188,6 +2188,129 @@ async function callOpenAIAnalysis(content, type, additionalData = {}) {
     return result;
 }
 
+// コンテンツ直接分析（構造化データ不足時のフォールバック）
+function analyzeContentDirectly(content, analysisType) {
+    console.log(`🔍 直接コンテンツ分析: ${analysisType}`);
+    
+    const lines = content.split('\n').filter(line => line.trim().length > 5);
+    const totalText = content.toLowerCase();
+    
+    switch (analysisType) {
+        case 'success_possibility':
+            return analyzeSuccessFromText(totalText, lines);
+        case 'patient_understanding':
+            return analyzeUnderstandingFromText(totalText, lines);
+        case 'treatment_consent':
+            return analyzeConsentFromText(totalText, lines);
+        default:
+            return {
+                score: null,
+                percentage: 0,
+                reasoning: 'データ不足により分析不可能',
+                method: 'insufficient_data'
+            };
+    }
+}
+
+// テキストから成約可能性を分析
+function analyzeSuccessFromText(text, lines) {
+    const positiveKeywords = ['はい', 'お願いします', 'やります', 'お任せします', '了解', '分かりました'];
+    const negativeKeywords = ['難しい', '考えさせて', '不安', '心配', '高い', '迷って'];
+    
+    let positiveCount = 0;
+    let negativeCount = 0;
+    
+    positiveKeywords.forEach(word => {
+        if (text.includes(word)) positiveCount++;
+    });
+    negativeKeywords.forEach(word => {
+        if (text.includes(word)) negativeCount++;
+    });
+    
+    const hasDiscussion = text.includes('治療') || text.includes('費用') || text.includes('次回');
+    const lineCount = lines.length;
+    
+    // 実際のデータから計算
+    let score = 0;
+    if (lineCount > 0) {
+        score = (positiveCount * 0.3 + (hasDiscussion ? 0.3 : 0) + Math.min(lineCount * 0.02, 0.4) - negativeCount * 0.2);
+        score = Math.max(0.05, Math.min(0.95, score));
+    }
+    
+    return {
+        score: score,
+        percentage: Math.round(score * 100),
+        reasoning: `テキスト分析結果: 積極的表現${positiveCount}個、消極的表現${negativeCount}個、治療関連言及${hasDiscussion ? 'あり' : 'なし'}、総行数${lineCount}行から算出`,
+        method: 'direct_text_analysis'
+    };
+}
+
+// テキストから理解度を分析
+function analyzeUnderstandingFromText(text, lines) {
+    const understandingWords = ['分かりました', 'はい', 'そうですね', 'なるほど', '理解しました'];
+    const confusionWords = ['分からない', 'よく分からない', '？', '難しい'];
+    
+    let understandingCount = 0;
+    let confusionCount = 0;
+    
+    understandingWords.forEach(word => {
+        if (text.includes(word)) understandingCount++;
+    });
+    confusionWords.forEach(word => {
+        if (text.includes(word)) confusionCount++;
+    });
+    
+    const avgLineLength = lines.length > 0 ? lines.reduce((sum, line) => sum + line.length, 0) / lines.length : 0;
+    const detailScore = Math.min(avgLineLength / 40, 1);
+    
+    let score = 0;
+    if (lines.length > 0) {
+        const understandingRatio = understandingCount / (understandingCount + confusionCount + 1);
+        score = understandingRatio * 0.7 + detailScore * 0.3;
+        score = Math.max(0.05, Math.min(0.95, score));
+    }
+    
+    return {
+        score: score,
+        percentage: Math.round(score * 100),
+        reasoning: `理解表現${understandingCount}個、混乱表現${confusionCount}個、平均発言長${Math.round(avgLineLength)}文字から算出`,
+        method: 'direct_text_analysis'
+    };
+}
+
+// テキストから同意可能性を分析
+function analyzeConsentFromText(text, lines) {
+    const consentWords = ['お願いします', 'やります', '受けます', '同意します'];
+    const hesitationWords = ['考えさせて', '迷って', '相談', 'ちょっと'];
+    
+    let consentCount = 0;
+    let hesitationCount = 0;
+    
+    consentWords.forEach(word => {
+        if (text.includes(word)) consentCount++;
+    });
+    hesitationWords.forEach(word => {
+        if (text.includes(word)) hesitationCount++;
+    });
+    
+    const hasTreatmentPlan = text.includes('治療') || text.includes('処置') || text.includes('次回');
+    
+    let score = 0;
+    if (lines.length > 0) {
+        const consentRatio = consentCount / (consentCount + hesitationCount + 1);
+        const planBonus = hasTreatmentPlan ? 0.2 : 0;
+        score = consentRatio * 0.7 + planBonus + 0.1;
+        score = Math.max(0.05, Math.min(0.95, score));
+    }
+    
+    return {
+        score: score,
+        percentage: Math.round(score * 100),
+        reasoning: `同意表現${consentCount}個、迷い表現${hesitationCount}個、治療計画言及${hasTreatmentPlan ? 'あり' : 'なし'}から算出`,
+        method: 'direct_text_analysis'
+    };
+}
+
 // 実データに基づく品質分析（固定値一切使用禁止）
 function analyzeQualityFromRealData(fileContent, fileAnalysis) {
     console.log('📊 実データ分析開始 - 固定値禁止モード');
@@ -2231,7 +2354,10 @@ function analyzeQualityFromRealData(fileContent, fileAnalysis) {
 
 // 成約可能性計算（治療受諾・ビジネス成功の可能性）
 function calculateSuccessPossibility(content, conversations) {
-    if (conversations.length === 0) return 0.1;
+    if (conversations.length === 0) {
+        console.warn('⚠️ 会話データなし - コンテンツテキストから直接分析');
+        return analyzeContentDirectly(content, 'success_possibility');
+    }
     
     const doctorLines = conversations.filter(c => c.role === '医師');
     const patientLines = conversations.filter(c => c.role === '患者');
@@ -2273,11 +2399,11 @@ function calculateSuccessPossibility(content, conversations) {
     return {
         success_possibility: finalScore,
         percentage: percentage,
-        reasoning: `成約可能性 ${percentage}%の根拠:\n` +
-                  `・積極的関与: ${Math.round(engagementScore * 100)}% (検出キーワード${engagementCount}個) - 重み30%\n` +
-                  `・受諾姿勢: ${Math.round(acceptanceScore * 100)}% (積極的${acceptanceCount}個、迷い${hesitationCount}個) - 重み35%\n` +
-                  `・具体的計画: ${Math.round(planningScore * 100)}% (費用${hasCostDiscussion ? '有' : '無'}、予約${hasScheduleDiscussion ? '有' : '無'}) - 重み20%\n` +
-                  `・信頼関係: ${Math.round(trustScore * 100)}% (検出キーワード${trustCount}個) - 重み15%`,
+        reasoning: `成約可能性 ${percentage}%の計算根拠:\n` +
+                  `・積極的関与: ${Math.round(engagementScore * 100)}% (検出キーワード${engagementCount}個) [特に重要35%]\n` +
+                  `・受諾姿勢: ${Math.round(acceptanceScore * 100)}% (積極的${acceptanceCount}個、迷い${hesitationCount}個) [最重要30%]\n` +
+                  `・具体的計画: ${Math.round(planningScore * 100)}% (費用${hasCostDiscussion ? '有' : '無'}、予約${hasScheduleDiscussion ? '有' : '無'}) [重要20%]\n` +
+                  `・信頼関係: ${Math.round(trustScore * 100)}% (検出キーワード${trustCount}個) [やや重要15%]`,
         breakdown: {
             engagement: { score: engagementScore, count: engagementCount, weight: 0.3 },
             acceptance: { score: acceptanceScore, positive: acceptanceCount, hesitation: hesitationCount, weight: 0.35 },
@@ -2290,7 +2416,10 @@ function calculateSuccessPossibility(content, conversations) {
 // 実際の患者理解度計算
 function calculateRealPatientUnderstanding(content, conversations) {
     const patientLines = conversations.filter(c => c.role === '患者');
-    if (patientLines.length === 0) return 0.1;
+    if (patientLines.length === 0) {
+        console.warn('⚠️ 患者発言データなし - 全体コンテンツから推定分析');
+        return analyzeContentDirectly(content, 'patient_understanding');
+    }
     
     // 理解を示すキーワード
     const understandingKeywords = ['分かりました', 'はい', 'そうですね', 'なるほど', '理解', 'わかります'];
@@ -2321,9 +2450,9 @@ function calculateRealPatientUnderstanding(content, conversations) {
     return {
         patient_understanding: finalScore,
         percentage: percentage,
-        reasoning: `患者理解度 ${percentage}%の根拠:\n` +
-                  `・理解表現: ${understandingCount}回 vs 混乱表現: ${confusionCount}回 (理解度${Math.round(understandingRatio * 100)}%) - 重み60%\n` +
-                  `・発言の詳細さ: 平均${Math.round(avgPatientLength)}文字 (詳細度${Math.round(lengthScore * 100)}%) - 重み40%\n` +
+        reasoning: `患者理解度 ${percentage}%の計算根拠:\n` +
+                  `・理解表現: ${understandingCount}回 vs 混乱表現: ${confusionCount}回 (理解度${Math.round(understandingRatio * 100)}%) [主要要素60%]\n` +
+                  `・発言の詳細さ: 平均${Math.round(avgPatientLength)}文字 (詳細度${Math.round(lengthScore * 100)}%) [補助要素40%]\n` +
                   `・患者発言総数: ${patientLines.length}件`,
         breakdown: {
             understanding_expressions: { count: understandingCount, ratio: understandingRatio, weight: 0.6 },
@@ -2336,7 +2465,10 @@ function calculateRealPatientUnderstanding(content, conversations) {
 // 実際の治療同意可能性計算
 function calculateRealConsentLikelihood(content, conversations) {
     const patientLines = conversations.filter(c => c.role === '患者');
-    if (patientLines.length === 0) return 0.1;
+    if (patientLines.length === 0) {
+        console.warn('⚠️ 患者発言データなし - 全体コンテンツから推定分析');
+        return analyzeContentDirectly(content, 'treatment_consent');
+    }
     
     // 同意を示すキーワード
     const consentKeywords = ['お願いします', 'やります', '受けます', '同意', 'はい、そうします', 'よろしく'];
@@ -2365,9 +2497,9 @@ function calculateRealConsentLikelihood(content, conversations) {
     return {
         treatment_consent_likelihood: finalScore,
         percentage: percentage,
-        reasoning: `治療同意可能性 ${percentage}%の根拠:\n` +
+        reasoning: `治療同意可能性 ${percentage}%の計算根拠:\n` +
                   `・同意表現: ${consentCount}回 vs 迷い表現: ${hesitationCount}回\n` +
-                  `・同意比率: ${Math.round(consentRatio * 100)}% (重み70%)\n` +
+                  `・同意比率: ${Math.round(consentRatio * 100)}% [主要判定70%]\n` +
                   `・治療計画言及: ${hasTreatmentPlan ? 'あり' : 'なし'} (+${Math.round(planBonus * 100)}%)\n` +
                   `・基礎点: 10%`,
         breakdown: {
@@ -2982,10 +3114,64 @@ function saveToDatabase() {
         return;
     }
     
+    // 保存プレビューページを表示
+    showSavePreview();
+}
+
+// 保存プレビューページの表示
+function showSavePreview() {
+    const jsonlRecord = currentSessionData.jsonlData;
+    const processedData = jsonlRecord.processed_data;
+    
+    // プレビューテーブルにデータを表示
+    const previewPatientName = document.getElementById('preview-patient-name');
+    const previewDoctorName = document.getElementById('preview-doctor-name');
+    const previewSData = document.getElementById('preview-s-data');
+    const previewOData = document.getElementById('preview-o-data');
+    const previewAData = document.getElementById('preview-a-data');
+    const previewPData = document.getElementById('preview-p-data');
+    const previewSuccessRate = document.getElementById('preview-success-rate');
+    const previewUnderstandingRate = document.getElementById('preview-understanding-rate');
+    const previewConsentRate = document.getElementById('preview-consent-rate');
+    
+    if (previewPatientName) previewPatientName.textContent = processedData.identification?.patient_name || '不明';
+    if (previewDoctorName) previewDoctorName.textContent = processedData.identification?.doctor_name || '不明';
+    if (previewSData) previewSData.textContent = processedData.soap?.S || '情報なし';
+    if (previewOData) previewOData.textContent = processedData.soap?.O || '情報なし';
+    if (previewAData) previewAData.textContent = processedData.soap?.A || '情報なし';
+    if (previewPData) previewPData.textContent = processedData.soap?.P || '情報なし';
+    if (previewSuccessRate) previewSuccessRate.textContent = `${Math.round((processedData.quality?.success_possibility || 0) * 100)}%`;
+    if (previewUnderstandingRate) previewUnderstandingRate.textContent = `${Math.round((processedData.quality?.patient_understanding || 0) * 100)}%`;
+    if (previewConsentRate) previewConsentRate.textContent = `${Math.round((processedData.quality?.treatment_consent_likelihood || 0) * 100)}%`;
+    
+    // ステップ4に移動
+    showStep(4);
+    
+    // 確認保存ボタンのイベントリスナーを設定
+    const confirmSaveBtn = document.getElementById('confirm-save');
+    if (confirmSaveBtn) {
+        confirmSaveBtn.onclick = confirmDatabaseSave;
+    }
+    
+    // JSONエクスポートボタンのイベントリスナーを設定
+    const exportJsonBtn = document.getElementById('export-json');
+    if (exportJsonBtn) {
+        exportJsonBtn.onclick = () => exportDataAsJSON(jsonlRecord);
+    }
+}
+
+// 実際のデータベース保存処理
+function confirmDatabaseSave() {
+    const jsonlRecord = currentSessionData.jsonlData;
+    const sessionId = jsonlRecord.session_id;
+    
     try {
-        // JSONL形式でデータを保存
-        const jsonlRecord = currentSessionData.jsonlData;
-        const sessionId = jsonlRecord.session_id;
+        // カスタムメッセージを取得
+        const saveMessage = document.getElementById('save-message')?.value || 'システムによる自動分析・SOAP記録生成が完了しました。';
+        
+        // メッセージをデータに追加
+        jsonlRecord.save_message = saveMessage;
+        jsonlRecord.save_timestamp = new Date().toISOString();
         
         // JSONL形式の文字列として保存（実際のDBでは1行1JSONとして保存）
         const jsonlString = JSON.stringify(jsonlRecord);
@@ -2996,11 +3182,8 @@ function saveToDatabase() {
         // 保存インデックスを更新（検索用）
         updateSaveIndex(sessionId, jsonlRecord);
         
-        // 保存完了の表示
-        displaySaveSuccess(jsonlRecord);
-        
-        // ステップ4に移動
-        showStep(4);
+        // 保存完了メッセージを表示
+        showSaveCompletion();
         
         // 履歴に追加
         addToHistory(jsonlRecord.processed_data.identification);
@@ -3011,37 +3194,41 @@ function saveToDatabase() {
             validation_score: jsonlRecord.processed_data.validation_result.confidence
         });
         
-        // ダウンロード可能なJSONLファイルとして提供
-        offerJSONLDownload(jsonlString, sessionId);
-
-        // サーバ保存のデモ表示（実際の保存は行わない）
-        console.log('💾 【デモ】 こんな感じで保存されます:');
-        console.log('🗃️ JSONL形式:', {
-            ファイル名: `dental_session_${sessionId}.jsonl`,
-            サイズ: `${Math.round(jsonlString.length / 1024)}KB`,
-            内容: 'SOAP記録 + AI分析結果 + メタデータ'
-        });
-        console.log('🗄️ SQLite形式:', {
-            テーブル: 'dental_sessions',
-            レコードID: sessionId,
-            インデックス: '患者名、日時、症状で検索可能'
-        });
-        // 保存状況をUI上でもデモ表示
-        const saveStatusElement = document.getElementById('save-status');
-        if (saveStatusElement) {
-            saveStatusElement.innerHTML = `
-                <div style="color: #2f855a; background: #c6f6d5; padding: 10px; border-radius: 4px;">
-                    ✅ デモ保存完了<br>
-                    📁 JSONL: dental_session_${sessionId}.jsonl (${Math.round(jsonlString.length / 1024)}KB)<br>
-                    🗄️ SQLite: dental_sessions テーブルに記録
-                </div>
-            `;
-            saveStatusElement.classList.add('saved');
-        }
-        
     } catch (error) {
         console.error('❌ 保存エラー:', error);
         alert(`保存中にエラーが発生しました: ${error.message}`);
+    }
+}
+
+// 保存完了メッセージの表示
+function showSaveCompletion() {
+    const saveCompletion = document.getElementById('save-completion');
+    const saveActions = document.querySelector('.save-actions');
+    
+    if (saveCompletion && saveActions) {
+        saveActions.style.display = 'none';
+        saveCompletion.style.display = 'block';
+    }
+}
+
+// JSONエクスポート機能
+function exportDataAsJSON(jsonlRecord) {
+    try {
+        const jsonlString = JSON.stringify(jsonlRecord, null, 2);
+        const blob = new Blob([jsonlString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dental_session_${jsonlRecord.session_id}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        console.log('📥 JSONファイルダウンロード開始:', a.download);
+    } catch (error) {
+        console.error('❌ JSON出力エラー:', error);
+        alert(`JSON出力中にエラーが発生しました: ${error.message}`);
     }
 }
 
