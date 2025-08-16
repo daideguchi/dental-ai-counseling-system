@@ -5,12 +5,21 @@
 
 class GeminiIntegration {
  constructor() {
-   // 既存ポート管理に従う：外部で window.DENTAL_API_ENDPOINT が指定されていれば優先
-   // 未指定時は従来のデフォルトを維持して互換性を確保
+   // 本番環境対応：Vercel環境では相対パス、ローカルでは絶対パス
+   const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
    const configured = (typeof window !== 'undefined') && window.DENTAL_API_ENDPOINT;
-   this.apiEndpoint = configured || 'http://localhost:8001/api/gemini';
+   
+   if (configured) {
+     this.apiEndpoint = configured;
+   } else if (isProduction) {
+     this.apiEndpoint = '/api/gemini'; // Vercel本番環境
+   } else {
+     this.apiEndpoint = 'http://localhost:8001/api/gemini'; // ローカル開発
+   }
+   
    this.isConnected = false;
    this.rateLimitDelay = 1000; // レート制限対応
+   console.log(`🔧 API Endpoint: ${this.apiEndpoint} (Production: ${isProduction})`);
  }
 
  // APIの接続確認

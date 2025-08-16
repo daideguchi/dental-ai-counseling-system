@@ -1,0 +1,38 @@
+{
+  "functions": {
+    "api/*.py": {
+      "runtime": "python3.9"
+    }
+  },
+  "env": {
+    "GEMINI_API_KEY": "@gemini_api_key"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, X-Requested-With" }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/gemini/health",
+      "destination": "/api/health"
+    },
+    {
+      "source": "/api/gemini/identify",
+      "destination": "/api/identify"
+    },
+    {
+      "source": "/api/gemini/soap",
+      "destination": "/api/soap"
+    },
+    {
+      "source": "/api/gemini/quality",
+      "destination": "/api/quality"
+    }
+  ]
+}
