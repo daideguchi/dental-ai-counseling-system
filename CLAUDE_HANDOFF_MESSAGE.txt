@@ -1,0 +1,33 @@
+[Handoff to Claude Code]
+
+Context:
+- Product: Dental Counseling AI (SOAP generation + quality analysis)
+- Frontend-first (Vanilla JS). Offline-capable with AI fallback.
+- Server options: ui/demo.py (UI+API), ui/api_server.py (API only)
+- Persistence: Browser localStorage + POST /api/save_jsonl to append ui/sessions.jsonl
+
+Recent changes by Codex:
+1) API endpoint override via window.DENTAL_API_ENDPOINT (backward compatible)
+2) UX guards for XLSX and MP3/WAV with clear guidance
+3) Server-side JSONL save endpoint (/api/save_jsonl) + SQLite persistence (/api/save_sqlite)
+4) UI auto-post to both save endpoints on save
+5) Fixed ui/README.md (usage, formats, endpoints)
+
+Run modes:
+- UI only: cd ui && python -m http.server 8000
+- Integrated: python ui/demo.py (default 8001)
+- API only: python ui/api_server.py 8002
+- Prefer: set window.DENTAL_API_ENDPOINT to your chosen /api/gemini
+
+What we need next (choose one to implement):
+- XLSX ingestion: Add /api/parse_xlsx (server-side parsing), then wire UI
+- Audio STT: Add /api/transcribe (Whisper, etc.), then feed text into existing flow
+- SQLite persistence: Implement write endpoints to store JSONL into DB (see custom_database_schema.sql)
+
+Acceptance checks:
+- TXT/CSV/SRT/MD process end-to-end with SOAP + quality
+- Fallback works if API unavailable
+- Save updates localStorage, ui/sessions.jsonl (when available), and ui/dental_counseling.db (when available)
+- XLSX/MP3/WAV show guidance and block processing
+
+Please log changes and verification steps back into AGENTS_HUB.md.

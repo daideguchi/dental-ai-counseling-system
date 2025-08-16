@@ -1,0 +1,1 @@
+/Users/dd/Desktop/1_dev/coding-rule2/ESSENTIAL_RULES.md

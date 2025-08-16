@@ -114,11 +114,22 @@ class handler(BaseHTTPRequestHandler):
             elif doctor_name in line or '医師' in line or 'Dr.' in line:
                 doctor_lines.append(line.split(':', 1)[-1].strip())
         
-        # 基本的なSOAP分類
-        subjective = ' '.join(patient_lines[:2]) if patient_lines else "主観的症状の記録が不明"
-        objective = ' '.join(doctor_lines[:2]) if doctor_lines else "客観的所見の記録が不明"
-        assessment = "症状の評価・診断が必要"
-        plan = "治療計画の策定が必要"
+        # 実際のデータからSOAP分類
+        # S: 患者の主観的情報（全ての患者発言を含める）
+        subjective = ' '.join(patient_lines) if patient_lines else ""
+        
+        # O: 医師の客観的所見（医師の観察・検査結果）
+        objective = ' '.join(doctor_lines[:3]) if doctor_lines else ""
+        
+        # A: 評価・診断（医師の診断的発言を抽出）
+        assessment_keywords = ['診断', '思われ', '考えられ', '可能性', '状態', '症状']
+        assessment_lines = [line for line in doctor_lines if any(k in line for k in assessment_keywords)]
+        assessment = ' '.join(assessment_lines) if assessment_lines else doctor_lines[-2] if len(doctor_lines) > 2 else ""
+        
+        # P: 治療計画（治療・処置・次回に関する発言を抽出）
+        plan_keywords = ['治療', '処置', '次回', '予約', '薬', '経過', '観察']
+        plan_lines = [line for line in doctor_lines if any(k in line for k in plan_keywords)]
+        plan = ' '.join(plan_lines) if plan_lines else doctor_lines[-1] if doctor_lines else ""
         
         return {
             "subjective": subjective,
