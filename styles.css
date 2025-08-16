@@ -1848,6 +1848,59 @@ body {
     font-weight: 600 !important;
 }
 
+/* 処理ログエントリのスタイル */
+.log-entry {
+    padding: 6px 12px;
+    margin: 2px 0;
+    border-left: 3px solid #3b82f6;
+    background: #f8fafc;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #1e293b !important;
+    font-weight: 500 !important;
+}
+
+.log-entry:nth-child(odd) {
+    background: #f1f5f9;
+}
+
+.log-entry:hover {
+    background: #e2e8f0;
+    transform: translateX(2px);
+    transition: all 0.2s ease;
+}
+
+/* セクションヘッダー */
+.log-entry:contains("===") {
+    background: #dbeafe;
+    border-left-color: #2563eb;
+    font-weight: 700 !important;
+    color: #1e40af !important;
+}
+
+/* 成功ログ */
+.log-entry:contains("✅") {
+    border-left-color: #10b981;
+    background: #ecfdf5;
+    color: #065f46 !important;
+}
+
+/* 警告ログ */
+.log-entry:contains("⚠️") {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+    color: #92400e !important;
+}
+
+/* エラーログ */
+.log-entry:contains("❌") {
+    border-left-color: #ef4444;
+    background: #fef2f2;
+    color: #991b1b !important;
+}
+
 /* カードボディ内の全テキスト */
 .card-body h4,
 .card-body p,
