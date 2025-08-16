@@ -63,9 +63,11 @@ static/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 # Temporary files
 *.tmp
 *.temp
 tmp/
 temp/
+.vercel
