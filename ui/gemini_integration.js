@@ -5,7 +5,10 @@
 
 class GeminiIntegration {
  constructor() {
-   this.apiEndpoint = '/api/gemini'; // 実際のAPIエンドポイント
+   // 既存ポート管理に従う：外部で window.DENTAL_API_ENDPOINT が指定されていれば優先
+   // 未指定時は従来のデフォルトを維持して互換性を確保
+   const configured = (typeof window !== 'undefined') && window.DENTAL_API_ENDPOINT;
+   this.apiEndpoint = configured || 'http://localhost:8001/api/gemini';
    this.isConnected = false;
    this.rateLimitDelay = 1000; // レート制限対応
  }
@@ -13,12 +16,16 @@ class GeminiIntegration {
  // APIの接続確認
  async checkConnection() {
    try {
+     console.log('🔍 DEBUG: API接続確認開始:', this.apiEndpoint);
      const response = await fetch(`${this.apiEndpoint}/health`, {
        method: 'GET'
      });
+     console.log('🔍 DEBUG: API応答:', response.status, response.statusText);
      this.isConnected = response.ok;
+     console.log('🔍 DEBUG: 接続状態設定:', this.isConnected);
      return this.isConnected;
    } catch (error) {
+     console.error('🔍 DEBUG: API接続確認例外:', error);
      console.warn('Gemini API接続確認失敗:', error.message);
      this.isConnected = false;
      return false;
@@ -41,12 +48,7 @@ class GeminiIntegration {
          'X-API-Version': '2024-01'
        },
        body: JSON.stringify({
-         prompt: identificationPrompt,
-         conversation: conversationText,
-         context: 'dental_consultation',
-         language: 'ja',
-         max_tokens: 500,
-         temperature: 0.0 // 事実認識なので完全一貫性
+         content: conversationText
        })
      });
 
@@ -96,62 +98,95 @@ ${conversationText}
 
    // 安全なパターンマッチング（○○さん、○○先生のみ）
    console.log('🔍 gemini_integration.js フォールバック識別開始');
+   console.log('📄 解析対象:', conversationText.substring(0, 300) + '...');
    
-   // 患者名抽出（○○さんパターンのみ）
-   const patientNameMatches = conversationText.match(/([一-龯]{2,4})さん/g);
-   if (patientNameMatches && patientNameMatches.length > 0) {
-     // 最も頻出する患者名を選択
-     const nameFreq = {};
-     patientNameMatches.forEach(match => {
-       const name = match.replace('さん', '');
-       nameFreq[name] = (nameFreq[name] || 0) + 1;
-     });
-     
-     const mostFrequentPatient = Object.keys(nameFreq).reduce((a, b) => 
-       nameFreq[a] > nameFreq[b] ? a : b
-     );
-     
-     if (mostFrequentPatient && mostFrequentPatient.length >= 2) {
-       patientName = mostFrequentPatient;
-       patientConfidence = 0.9;
-       console.log('✅ フォールバック患者名特定:', patientName);
-     }
-   }
-   
-   // 医師名抽出（○○先生、Dr.○○パターンのみ）
-   const doctorNameMatches = conversationText.match(/([一-龯]{2,4})先生/g);
-   if (doctorNameMatches && doctorNameMatches.length > 0) {
-     const name = doctorNameMatches[0].replace('先生', '');
-     if (name.length >= 2 && name.length <= 4) {
-       doctorName = name;
-       doctorConfidence = 0.8;
-       console.log('✅ フォールバック医師名特定:', doctorName);
-     }
-   } else {
-     // Dr.パターンも確認
-     const drMatches = conversationText.match(/Dr\.?\s*([一-龯]{2,4})/g);
-     if (drMatches && drMatches.length > 0) {
-       const match = drMatches[0].match(/Dr\.?\s*([一-龯]{2,4})/);
-       if (match && match[1]) {
-         doctorName = match[1];
-         doctorConfidence = 0.7;
-         console.log('✅ フォールバックDr.名特定:', doctorName);
+   // 患者名抽出パターンを拡張
+   const patientPatterns = [
+     /([一-龯ぁ-んァ-ン]{2,6})[さ様]/g,  // ○○さん、○○様
+     /患者[：:\s]*([一-龯ぁ-んァ-ン]{2,5})/g,  // 患者：○○
+     /Patient[:\s]*([一-龯A-Za-z]{2,6})/gi,  // Patient: ○○
+     /A[:\s]*([一-龯ぁ-んァ-ン]{2,5})/g    // A: ○○ (話者A)
+   ];
+
+   const patientCandidates = {};
+   patientPatterns.forEach(pattern => {
+     const matches = [...conversationText.matchAll(pattern)];
+     matches.forEach(match => {
+       const name = match[1]?.trim();
+       if (name && name.length >= 2 && !['患者', '医師', '先生', '担当'].includes(name)) {
+         patientCandidates[name] = (patientCandidates[name] || 0) + 1;
        }
-     }
+     });
+   });
+
+   if (Object.keys(patientCandidates).length > 0) {
+     const bestPatient = Object.keys(patientCandidates).reduce((a, b) => 
+       patientCandidates[a] > patientCandidates[b] ? a : b
+     );
+     patientName = bestPatient;
+     patientConfidence = Math.min(0.95, 0.7 + (patientCandidates[bestPatient] * 0.1));
+     console.log('✅ フォールバック患者名特定:', patientName, '(出現回数:', patientCandidates[bestPatient], ')');
+   }
+   
+   // 医師名抽出パターンを拡張
+   const doctorPatterns = [
+     /([一-龯ぁ-んァ-ン]{2,6})\s*先生/g,  // ○○先生
+     /Dr\.?\s*([一-龯A-Za-z]{2,6})/gi,    // Dr.○○
+     /医師[：:\s]*([一-龯ぁ-んァ-ン]{2,5})/g,  // 医師：○○
+     /Doctor[:\s]*([一-龯A-Za-z]{2,6})/gi,  // Doctor: ○○
+     /担当[：:\s]*([一-龯ぁ-んァ-ン]{2,5})/g,  // 担当：○○
+     /B[:\s]*([一-龯ぁ-んァ-ン]{2,5})/g     // B: ○○ (話者B)
+   ];
+
+   const doctorCandidates = {};
+   doctorPatterns.forEach(pattern => {
+     const matches = [...conversationText.matchAll(pattern)];
+     matches.forEach(match => {
+       const name = match[1]?.trim();
+       if (name && name.length >= 2 && !['患者', '医師', '先生', '担当'].includes(name)) {
+         doctorCandidates[name] = (doctorCandidates[name] || 0) + 1;
+       }
+     });
+   });
+
+   if (Object.keys(doctorCandidates).length > 0) {
+     const bestDoctor = Object.keys(doctorCandidates).reduce((a, b) => 
+       doctorCandidates[a] > doctorCandidates[b] ? a : b
+     );
+     doctorName = bestDoctor;
+     doctorConfidence = Math.min(0.95, 0.7 + (doctorCandidates[bestDoctor] * 0.1));
+     console.log('✅ フォールバック医師名特定:', doctorName, '(出現回数:', doctorCandidates[bestDoctor], ')');
+   } else {
+     console.log('⚠️ 医師名パターンマッチング失敗 - デフォルト「医師」を使用');
    }
 
-   
    // 結果ログ
-   console.log('🔍 フォールバック識別結果:', { patientName, doctorName, patientConfidence, doctorConfidence });
+   console.log('🔍 フォールバック識別結果:', { 
+     patientName, doctorName, 
+     patientConfidence: Math.round(patientConfidence * 100) + '%', 
+     doctorConfidence: Math.round(doctorConfidence * 100) + '%',
+     patientCandidates,
+     doctorCandidates
+   });
 
-   // 話者パターンから推測
-   const speakerACount = (conversationText.match(/Speaker A|発言者A/g) || []).length;
-   const speakerBCount = (conversationText.match(/Speaker B|発言者B/g) || []).length;
+   // 話者パターンから推測 (Speaker A/B解析強化)
+   const speakerACount = (conversationText.match(/Speaker A|発言者A|A:/g) || []).length;
+   const speakerBCount = (conversationText.match(/Speaker B|発言者B|B:/g) || []).length;
    
    if (speakerACount > 0 && speakerBCount > 0) {
-     // Speaker パターンがある場合の信頼度向上
+     console.log(`✅ 話者パターン確認: A発言${speakerACount}回, B発言${speakerBCount}回`);
      patientConfidence = Math.max(patientConfidence, 0.6);
      doctorConfidence = Math.max(doctorConfidence, 0.6);
+     
+     // A/Bパターンの場合、通常はA=患者、B=医師
+     if (patientName === '患者' && speakerACount > 2) {
+       patientName = '話者A(患者)';
+       patientConfidence = 0.7;
+     }
+     if (doctorName === '医師' && speakerBCount > 2) {
+       doctorName = '話者B(医師)';
+       doctorConfidence = 0.7;
+     }
    }
 
    return {
@@ -159,8 +194,8 @@ ${conversationText}
      doctor_name: doctorName,
      confidence_patient: patientConfidence,
      confidence_doctor: doctorConfidence,
-     reasoning: `パターンマッチングによる特定: 患者信頼度${Math.round(patientConfidence * 100)}%, 医師信頼度${Math.round(doctorConfidence * 100)}%`,
-     method: 'enhanced_pattern_matching'
+     reasoning: `拡張パターンマッチング: 患者信頼度${Math.round(patientConfidence * 100)}%, 医師信頼度${Math.round(doctorConfidence * 100)}%`,
+     method: 'enhanced_pattern_matching_v2'
    };
  }
 
@@ -180,15 +215,9 @@ ${conversationText}
          'X-API-Version': '2024-01'
        },
        body: JSON.stringify({
-         prompt: dentalSOAPPrompt,
-         conversation: conversationText,
+         content: conversationText,
          patient_name: patientName,
-         doctor_name: doctorName,
-         specialty: 'dentistry',
-         language: 'ja',
-         format_version: 'soap_v3_dental',
-         max_tokens: 2000,
-         temperature: 0.1 // 医療記録なので一貫性重視
+         doctor_name: doctorName
        })
      });
 
@@ -569,10 +598,8 @@ ${conversationText}
          'X-API-Version': '2024-01'
        },
        body: JSON.stringify({
-         conversation: conversationText,
-         analysis_type: 'comprehensive',
-         specialty: 'dentistry',
-         language: 'ja'
+         content: conversationText,
+         soap: {}
        })
      });
 

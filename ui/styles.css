@@ -1,6 +1,184 @@
-/* モダンCSS - 歯科カウンセリングAIツール */
+/* 2025年医療UIベストプラクティス準拠 - 歯科カウンセリングAIツール */
+/* Phase 1完了: アクセシビリティ強化、マイクロインタラクション、視覚階層最適化 */
+/* 次回実装予定: Phase 2 (音声ガイド、詳細フィードバック) Phase 3 (役割別最適化) */
+
+/* シンプル結果表示スタイル */
+.result-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.result-section h3 {
+    color: #1a365d;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.original-data-display {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    max-height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+.soap-simple-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.soap-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.soap-item label {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.soap-item textarea {
+    min-height: 60px;
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    resize: vertical;
+    font-size: 12px;
+}
+
+.evaluation-summary {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.eval-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f7fafc;
+    padding: 8px 12px;
+    border-radius: 4px;
+    min-width: 120px;
+}
+
+.eval-item span:last-child {
+    font-weight: 600;
+    color: #2b6cb0;
+}
+
+.save-status {
+    padding: 10px;
+    background: #fed7d7;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.save-status.saved {
+    background: #c6f6d5;
+    color: #2f855a;
+}
+
+.process-log {
+    background: #f8f9fa;
+    padding: 10px;
+}
+
+/* リアルタイム処理ログスタイル */
+.processing-logs {
+    margin-top: 20px;
+    padding: 15px;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.processing-logs h3 {
+    margin: 0 0 10px 0;
+    color: #2d3748;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.log-list {
+    background: #f8f9fa;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px;
+    min-height: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.log-item {
+    padding: 4px 8px;
+    margin: 2px 0;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.log-item.log-info {
+    background: #e6f3ff;
+    color: #2b6cb0;
+    border-left: 3px solid #2b6cb0;
+}
+
+.log-item.log-success {
+    background: #c6f6d5;
+    color: #2f855a;
+    border-left: 3px solid #2f855a;
+}
+
+.log-item.log-warning {
+    background: #fef5e7;
+    color: #d69e2e;
+    border-left: 3px solid #d69e2e;
+}
+
+.log-item.log-error {
+    background: #fed7d7;
+    color: #c53030;
+    border-left: 3px solid #c53030;
+}
+
+@media (max-width: 768px) {
+    .soap-simple-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .evaluation-summary {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .eval-item {
+        min-width: 100%;
+    }
+}
 
 /* リセット & 基本設定 */
+/* アクセシビリティ & 高齢者対応強化 */
 * {
     margin: 0;
     padding: 0;
@@ -41,13 +219,34 @@
     --radius-lg: 0.5rem;
     --radius-xl: 0.75rem;
     
-    /* スペーシング */
+    /* スペーシング - 医療従事者向けタッチターゲット拡大 */
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
     --spacing-lg: 1.5rem;
     --spacing-xl: 2rem;
     --spacing-2xl: 3rem;
+    
+    /* 医療UIアクセシビリティ基準 */
+    --touch-target-min: 48px;    /* 最小タッチターゲット */
+    --font-size-accessible: 16px; /* 読みやすい最小サイズ */
+    --line-height-comfortable: 1.6; /* 快適な行間 */
+    
+    /* マイクロインタラクション用アニメーション */
+    --transition-fast: 0.15s ease-out;
+    --transition-normal: 0.25s ease-out;
+    --transition-slow: 0.4s ease-out;
+    
+    /* 医療専門家向け色分け */
+    --medical-critical: #dc2626;   /* 緊急・重要 */
+    --medical-warning: #d97706;    /* 注意・警告 */
+    --medical-info: #0ea5e9;      /* 情報・通常 */
+    --medical-success: #16a34a;   /* 完了・成功 */
+    --medical-neutral: #6b7280;   /* 中立・補助 */
+    
+    /* Phase 2: 音声ガイド準備 */
+    --voice-enabled-color: #8b5cf6; /* 音声機能アクティブ */
+    --voice-disabled-color: #9ca3af; /* 音声機能非アクティブ */
 }
 
 body {
@@ -73,9 +272,6 @@ body {
     background: #0f172a; /* 単色で安定したコントラスト */
     border-bottom: 2px solid #0b1220;
     box-shadow: var(--shadow-sm);
-    position: sticky;
-    top: 0;
-    z-index: 100;
 }
 
 .header-content {
@@ -189,15 +385,23 @@ body {
 }
 
 /* カード（背景白＋濃色文字で同化防止） */
+/* 2025医療UI: インタラクティブカード強化 */
 .card {
     background: #ffffff;
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
+    border-radius: var(--radius-xl); /* より丸みのある親しみやすい形 */
+    box-shadow: var(--shadow-lg); /* 深い影で立体感強調 */
     border: 1px solid #e5e7eb;
     overflow: hidden;
     margin-bottom: var(--spacing-xl);
-    transition: box-shadow 0.2s ease, transform 0.05s ease;
-    color: #0b1220; /* カード内本文色を明示 */
+    transition: all var(--transition-normal); /* 滑らかなアニメーション */
+    color: var(--primary-color); /* より濃い色で視認性向上 */
+    position: relative;
+}
+
+.card:hover {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12); /* ホバー時の深い影 */
+    transform: translateY(-2px); /* 微妙な浮上効果 */
+    border-color: rgba(37, 99, 235, 0.2); /* プライマリ色のソフトなボーダー */
 }
 
 .card:hover {
@@ -414,28 +618,60 @@ body {
     transition: all 0.3s ease;
 }
 
+/* 2025医療UIベストプラクティス: アクセシブルボタン */
 .primary-btn {
-    background: #2563eb; /* 明度を落とした青で白文字とのWCAGコントラスト確保 */
+    background: #2563eb; /* WCAG AAA準拠 */
     color: #ffffff;
     border: none;
-    padding: 12px 24px;
-    border-radius: var(--radius-md);
-    font-weight: 800;
-    font-size: 0.95rem;
+    padding: 16px 32px; /* タッチターゲット拡大 */
+    min-height: var(--touch-target-min); /* 48px最小サイズ */
+    border-radius: var(--radius-lg); /* 親しみやすい丸み */
+    font-weight: 700; /* 適度な太さ */
+    font-size: var(--font-size-accessible); /* 16px以上 */
+    line-height: var(--line-height-comfortable);
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all var(--transition-normal); /* スムーズ */
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-sm);
-    box-shadow: 0 6px 14px rgba(37,99,235,0.25);
+    box-shadow: 0 8px 16px rgba(37,99,235,0.25); /* 深い影 */
     letter-spacing: 0.02em;
     text-transform: none;
+    position: relative;
+    overflow: hidden; /* リップル用 */
 }
 
+/* 医療用マイクロインタラクション強化 */
 .primary-btn:hover:not(:disabled) {
-    background: #1d4ed8; /* 濃いめホバーで視認性UP */
-    box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+    background: #1d4ed8;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35); /* より目立つ影 */
+    transform: translateY(-2px) scale(1.02); /* 微細なスケールアップ */
+}
+
+.primary-btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);
+    transition: all var(--transition-fast); /* 素早いレスポンス */
+}
+
+/* クリック時のリップルエフェクト */
+.primary-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width var(--transition-slow), height var(--transition-slow);
+}
+
+.primary-btn:active::after {
+    width: 200px;
+    height: 200px;
 }
 
 .primary-btn:disabled {
@@ -515,26 +751,38 @@ body {
     }
 }
 
+/* サブボタンもアクセシビリティ対応 */
 .secondary-btn {
-    background: #e2e8f0; /* 薄いグレー帯で白背景と差別化 */
-    color: #0b1220;
-    border: 1px solid #cbd5e1;
-    padding: 10px 20px;
-    border-radius: var(--radius-md);
-    font-weight: 700;
+    background: #f8fafc; /* より清潔感のある白に近い背景 */
+    color: var(--primary-color);
+    border: 2px solid var(--gray-300); /* ボーダーを太くして視認性向上 */
+    padding: 14px 28px; /* タッチターゲット拡大 */
+    min-height: var(--touch-target-min);
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    font-size: var(--font-size-accessible);
+    line-height: var(--line-height-comfortable);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal);
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-sm);
     box-shadow: var(--shadow-sm);
-    font-size: 0.95rem;
+    position: relative;
 }
 
-.secondary-btn:hover {
-    background: var(--gray-50);
-    border-color: var(--gray-400);
-    box-shadow: var(--shadow-md);
+.secondary-btn:hover:not(:disabled) {
+    background: #ffffff;
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+    color: var(--primary-color);
+}
+
+.secondary-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
 }
 
 .info-btn {
@@ -1060,6 +1308,34 @@ body {
     border-radius: var(--radius-md);
     margin: var(--spacing-lg);
     border: 1px solid var(--gray-300);
+}
+/* === 追加: DB保存形式UIのインタラクション & 視覚効果強化 === */
+.db-specification-panel {
+    animation: fadeInUp 0.6s ease-out;
+}
+.db-spec-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.db-spec-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+.field-type {
+    min-width: 80px;
+}
+.json-example {
+    max-height: 300px;
+    overflow-y: auto;
+}
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* 成功カード */

@@ -7,6 +7,7 @@ let uploadedFiles = [];
 let appointmentData = [];
 let currentSessionData = null;
 let editMode = false;
+let processingLogContainer = null;
 
 // DOM要素の取得
 const DOM = {
@@ -36,14 +37,14 @@ const DOM = {
     patientName: () => document.getElementById('patient-name'),
     doctorName: () => document.getElementById('doctor-name'),
     sessionDate: () => document.getElementById('session-date'),
-    sourceTool: () => document.getElementById('source-tool'),
+    // sourceTool: () => document.getElementById('source-tool'), // 存在しないためコメントアウト
     
-    // SOAP表示
+    // SOAP表示（display要素は存在しないため削除）
     soapElements: () => ({
-        s: { display: document.getElementById('soap-s-display'), input: document.getElementById('soap-s') },
-        o: { display: document.getElementById('soap-o-display'), input: document.getElementById('soap-o') },
-        a: { display: document.getElementById('soap-a-display'), input: document.getElementById('soap-a') },
-        p: { display: document.getElementById('soap-p-display'), input: document.getElementById('soap-p') }
+        s: { input: document.getElementById('soap-s') },
+        o: { input: document.getElementById('soap-o') },
+        a: { input: document.getElementById('soap-a') },
+        p: { input: document.getElementById('soap-p') }
     }),
     
     // 分析結果
@@ -63,33 +64,153 @@ const DOM = {
     saveSummary: () => document.getElementById('save-summary')
 };
 
+// リアルタイム処理ログ表示機能
+function addProcessingLog(message, type = 'info') {
+    console.log(`🔍 addProcessingLog呼び出し: "${message}" (${type})`);
+    
+    // 毎回要素を取得（ステップ移動後にDOM要素が生成されるため）
+    const logContainer = document.getElementById('processing-log-list');
+    console.log(`🔍 処理ログコンテナ取得結果:`, logContainer);
+    
+    if (logContainer) {
+        console.log(`✅ 処理ログコンテナ見つかりました`);
+        const logItem = document.createElement('div');
+        logItem.className = `log-item log-${type}`;
+        logItem.style.cssText = `
+            padding: 4px 8px;
+            margin: 2px 0;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.4;
+            background: ${type === 'success' ? '#c6f6d5' : type === 'error' ? '#fed7d7' : type === 'warning' ? '#fef5e7' : '#e6f3ff'};
+            color: ${type === 'success' ? '#2f855a' : type === 'error' ? '#c53030' : type === 'warning' ? '#d69e2e' : '#2b6cb0'};
+            border-left: 3px solid ${type === 'success' ? '#2f855a' : type === 'error' ? '#c53030' : type === 'warning' ? '#d69e2e' : '#2b6cb0'};
+        `;
+        logItem.innerHTML = `<span style="color: #666; font-size: 10px;">${new Date().toLocaleTimeString()}</span> ${message}`;
+        
+        logContainer.appendChild(logItem);
+        logContainer.scrollTop = logContainer.scrollHeight;
+        console.log(`✅ ログアイテム追加完了: ${logContainer.children.length}個`);
+        
+        // 進捗をログ数で計算
+        updateProgressFromLogs();
+    } else {
+        console.error(`❌ 処理ログコンテナが見つかりません! ID: processing-log-list`);
+        // 緊急用フォールバック - 別の場所に表示
+        const status = document.getElementById('processing-status');
+        if (status) {
+            status.textContent = message;
+            console.log(`⚠️ フォールバック: ステータスエリアに表示`);
+        }
+    }
+    
+    // コンソールにも出力
+    console.log(message);
+}
+
+// プログレスバー進捗更新
+// ログ数に基づく進捗更新
+function updateProgressFromLogs() {
+    const logContainer = document.getElementById('processing-log-list');
+    const progressFill = document.getElementById('progress-fill');
+    const progressPercentage = document.getElementById('progress-percentage');
+    const progressEta = document.getElementById('progress-eta');
+    
+    if (logContainer) {
+        const logCount = logContainer.children.length;
+        const estimatedSteps = 25; // 推定総ステップ数
+        const progress = Math.min((logCount / estimatedSteps) * 100, 95); // 最大95%まで
+        
+        if (progressFill) progressFill.style.width = `${progress}%`;
+        if (progressPercentage) progressPercentage.textContent = `${Math.round(progress)}%`;
+        if (progressEta && progress > 0) {
+            const remainingSteps = estimatedSteps - logCount;
+            const avgTimePerStep = 0.5; // 秒
+            const eta = Math.max(remainingSteps * avgTimePerStep, 0);
+            progressEta.textContent = eta > 0 ? `残り約${eta.toFixed(0)}秒` : '完了間近...';
+        }
+        
+        console.log(`📊 進捗更新: ${logCount}/${estimatedSteps} ログ → ${Math.round(progress)}%`);
+    }
+}
+
 // 初期化
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOMContentLoaded: 初期化開始');
     initializeApp();
     bindEvents();
     loadHistory();
+    
 });
 
 // アプリケーション初期化
 function initializeApp() {
+    console.log('🚀 アプリケーション初期化開始');
+    
+    // DOM要素の存在確認
+    const domCheck = {
+        plaudFiles: DOM.plaudFiles() ? '✅' : '❌',
+        nottaFiles: DOM.nottaFiles() ? '✅' : '❌',
+        processBtn: DOM.processBtn() ? '✅' : '❌',
+        saveBtn: DOM.saveBtn() ? '✅' : '❌',
+        plaudFileList: DOM.plaudFileList() ? '✅' : '❌',
+        nottaFileList: DOM.nottaFileList() ? '✅' : '❌'
+    };
+    
+    console.log('🔍 DOM要素存在確認:', domCheck);
+    
     // 初期ステップの設定
     showStep(1);
     
     // ボタンの初期状態
-    if (DOM.processBtn()) DOM.processBtn().disabled = true;
-    if (DOM.saveBtn()) DOM.saveBtn().disabled = true;
+    if (DOM.processBtn()) {
+        DOM.processBtn().disabled = true;
+        console.log('🔘 処理ボタンを無効化');
+    } else {
+        console.error('❌ 処理ボタンが見つかりません');
+    }
+    
+    if (DOM.saveBtn()) {
+        DOM.saveBtn().disabled = true;
+        console.log('💾 保存ボタンを無効化');
+    } else {
+        console.error('❌ 保存ボタンが見つかりません');
+    }
     
     console.log('🚀 歯科カウンセリングAIツール初期化完了');
 }
 
 // イベントバインディング
 function bindEvents() {
+    console.log('🔧 bindEvents開始 - イベントリスナーを設定中');
+    
     // ファイル選択イベント
-    if (DOM.plaudFiles()) {
-        DOM.plaudFiles().addEventListener('change', () => handleFileSelect('plaud'));
+    const plaudElement = DOM.plaudFiles();
+    const nottaElement = DOM.nottaFiles();
+    
+    console.log('🔍 DOM要素確認:', {
+        plaudFiles: plaudElement ? 'found' : 'NOT FOUND',
+        nottaFiles: nottaElement ? 'found' : 'NOT FOUND'
+    });
+    
+    if (plaudElement) {
+        plaudElement.addEventListener('change', () => {
+            console.log('📁 PLAUDファイル選択イベント発火');
+            handleFileSelect('plaud');
+        });
+        console.log('✅ PLAUDファイル選択イベント設定完了');
+    } else {
+        console.error('❌ plaud-files要素が見つかりません');
     }
-    if (DOM.nottaFiles()) {
-        DOM.nottaFiles().addEventListener('change', () => handleFileSelect('notta'));
+    
+    if (nottaElement) {
+        nottaElement.addEventListener('change', () => {
+            console.log('📁 Nottaファイル選択イベント発火');
+            handleFileSelect('notta');
+        });
+        console.log('✅ Nottaファイル選択イベント設定完了');
+    } else {
+        console.error('❌ notta-files要素が見つかりません');
     }
     
     // ボタンイベント
@@ -162,29 +283,65 @@ function bindEvents() {
 
 // ファイル選択処理
 function handleFileSelect(tool) {
-    const files = tool === 'plaud' ? DOM.plaudFiles().files : DOM.nottaFiles().files;
+    console.log(`🚀 handleFileSelect開始 - ツール: ${tool}`);
+    
+    const filesElement = tool === 'plaud' ? DOM.plaudFiles() : DOM.nottaFiles();
+    console.log(`📂 ファイル要素:`, filesElement);
+    
+    if (!filesElement) {
+        console.error(`❌ ${tool}のファイル要素が取得できません`);
+        return;
+    }
+    
+    const files = filesElement.files;
+    console.log(`📄 選択されたファイル数: ${files.length}`);
+    
+    if (files.length === 0) {
+        console.log('⚠️ ファイルが選択されていません');
+        return;
+    }
+    
     uploadedFiles = Array.from(files);
     selectedTool = tool;
     
+    console.log(`📁 アップロードファイル詳細:`, uploadedFiles.map(f => ({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        lastModified: f.lastModified
+    })));
+    
     // ファイルリスト表示
+    console.log('🖼️ ファイルリスト表示開始');
     displayFileList(tool);
     
+    // 対応状況チェック（XLSX/音声はガイド表示して処理を抑止）
+    console.log('✅ 対応状況チェック開始');
+    const unsupported = checkUnsupportedSelection(uploadedFiles);
+    console.log('📊 対応状況チェック結果:', unsupported);
+    
     // 処理ボタンの状態更新
-    DOM.processBtn().disabled = uploadedFiles.length === 0;
+    console.log('🔘 処理ボタン状態更新開始');
+    if (DOM.processBtn()) {
+        const shouldDisable = uploadedFiles.length === 0 || unsupported.isBlocked;
+        DOM.processBtn().disabled = shouldDisable;
+        console.log(`🔘 処理ボタン: ${shouldDisable ? '無効化' : '有効化'}`);
+    }
     
     // 他のツールの選択をクリア
     if (tool === 'plaud') {
-        DOM.nottaFiles().value = '';
-        DOM.nottaFileList().innerHTML = '';
+        if (DOM.nottaFiles()) DOM.nottaFiles().value = '';
+        if (DOM.nottaFileList()) DOM.nottaFileList().innerHTML = '';
     } else {
-        DOM.plaudFiles().value = '';
-        DOM.plaudFileList().innerHTML = '';
+        if (DOM.plaudFiles()) DOM.plaudFiles().value = '';
+        if (DOM.plaudFileList()) DOM.plaudFileList().innerHTML = '';
     }
     
     // ファイル添付後のUI調整
+    console.log('🎨 UI調整開始');
     adjustUIAfterFileSelect();
     
-    console.log(`📁 ${tool}ファイル選択:`, uploadedFiles.map(f => f.name));
+    console.log(`✅ ${tool}ファイル選択処理完了:`, uploadedFiles.map(f => f.name));
 }
 
 // ファイル選択後のUI調整
@@ -228,9 +385,54 @@ function adjustUIAfterFileSelect() {
     }
 }
 
+// 未対応形式の抑止とガイド表示
+function checkUnsupportedSelection(files) {
+    const exts = files.map(f => f.name.split('.').pop().toLowerCase());
+    const hasXlsx = exts.some(e => e === 'xlsx');
+    const hasAudio = exts.some(e => e === 'mp3' || e === 'wav');
+    let isBlocked = false;
+    
+    const container = selectedTool === 'plaud' ? DOM.plaudFileList() : DOM.nottaFileList();
+    if (container) {
+        const noticeId = 'unsupported-notice';
+        let notice = document.getElementById(noticeId);
+        if (!notice) {
+            notice = document.createElement('div');
+            notice.id = noticeId;
+            notice.style.marginTop = '8px';
+            notice.style.padding = '10px 12px';
+            notice.style.borderRadius = '8px';
+            notice.style.border = '1px solid #e0b400';
+            notice.style.background = '#fff7db';
+            notice.style.color = '#5a4b00';
+            notice.style.fontSize = '12px';
+            container.appendChild(notice);
+        }
+        notice.innerHTML = '';
+        notice.style.display = 'none';
+        
+        if (hasXlsx) {
+            notice.style.display = 'block';
+            notice.innerHTML += '📊 XLSXファイルが選択されました。サーバー側で自動的にテキストを抽出して処理を行います。';
+        }
+        if (hasAudio) {
+            isBlocked = true;
+            notice.style.display = 'block';
+            notice.innerHTML += (notice.innerHTML ? '<br>' : '') + '🎧 音声ファイル（MP3/WAV）は自動文字起こし未実装です。SRT/TXTでアップロードしてください。';
+        }
+    }
+    
+    return { isBlocked };
+}
+
 // ファイルリスト表示
 function displayFileList(tool) {
     const listElement = tool === 'plaud' ? DOM.plaudFileList() : DOM.nottaFileList();
+    if (!listElement) {
+        console.error('❌ ファイルリスト表示エラー: DOM要素が見つかりません', tool);
+        return;
+    }
+    
     listElement.innerHTML = '';
     
     uploadedFiles.forEach((file, index) => {
@@ -279,18 +481,53 @@ async function startProcessing() {
     // ステップ2（処理中）に移動
     showStep(2);
     
+    // DOM要素が生成されるまで少し待つ
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // ここからログ開始
+    addProcessingLog('👨‍⚕️ 歯科カウンセリングの解析を開始します', 'info');
+    
     try {
-        // ファイル内容読み込み
-        const fileContent = await readFileContent(uploadedFiles[0]);
+        let fileContent;
+        let processedFile = uploadedFiles[0];
         
-        // 処理の可視化
-        await visualizeProcessing(fileContent);
+        // XLSX ファイルかどうかチェック
+        const isXlsx = uploadedFiles[0].name.toLowerCase().endsWith('.xlsx');
+        
+        if (isXlsx) {
+            // XLSX ファイルの場合は専用API で解析
+            addProcessingLog('📄 Excelファイルを読み込んでいます', 'info');
+            const xlsxResult = await processXLSXFile(uploadedFiles[0]);
+            fileContent = xlsxResult.text_content;
+            addProcessingLog(`✅ Excelファイルから${fileContent.length}文字の会話データを取得しました`, 'success');
+            
+            // 処理用にファイル情報を更新（テキストファイルとして扱う）
+            processedFile = {
+                name: uploadedFiles[0].name.replace('.xlsx', '_extracted.txt'),
+                size: fileContent.length,
+                type: 'text/plain',
+                originalXlsx: true
+            };
+        } else {
+            // 通常のファイル内容読み込み
+            addProcessingLog('📄 アップロードされたファイルを読み込んでいます', 'info');
+            fileContent = await readFileContent(uploadedFiles[0]);
+            addProcessingLog(`✅ ファイルから${fileContent.length}文字の会話内容を取得しました`, 'success');
+        }
+        
+        // ファイル内容のプレビュー表示（ダミーデータでないことを確認）
+        const contentPreview = fileContent.substring(0, 100).replace(/\n/g, ' ');
+        addProcessingLog(`👀 会話内容の一部: 「${contentPreview}...」`, 'info');
         
         // 実際のAI処理
-        const result = await processWithAI(fileContent, uploadedFiles[0]);
+        addProcessingLog('🤖 AIが会話内容を分析しています。しばらくお待ちください', 'info');
+        const result = await processWithAI(fileContent, processedFile);
         
         // 結果保存
         currentSessionData = result;
+        
+        addProcessingLog('✅ AIによる分析が完了しました！', 'success');
+        addProcessingLog('📊 結果を表示します', 'info');
         
         // ステップ3（結果表示）に移動
         showStep(3);
@@ -300,6 +537,7 @@ async function startProcessing() {
         
     } catch (error) {
         console.error('❌ 処理エラー:', error);
+        addProcessingLog(`❌ 処理エラー: ${error.message}`, 'error');
         alert(`処理中にエラーが発生しました: ${error.message}`);
         showStep(1);
     }
@@ -354,6 +592,47 @@ function updateProgress(percentage) {
     }
     if (DOM.progressText()) {
         DOM.progressText().textContent = `${Math.round(percentage)}%`;
+    }
+}
+
+// XLSX ファイル解析処理
+async function processXLSXFile(file) {
+    try {
+        // FormDataを作成してファイルをアップロード
+        const formData = new FormData();
+        formData.append('xlsx_file', file);
+        
+        // API エンドポイント取得
+        const apiEndpoint = window.DENTAL_API_ENDPOINT || 'http://localhost:8001/api/gemini';
+        const xlsxEndpoint = apiEndpoint.replace('/api/gemini', '/api/parse_xlsx');
+        
+        console.log('📊 XLSX API呼び出し:', xlsxEndpoint);
+        
+        const response = await fetch(xlsxEndpoint, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`XLSX解析APIエラー: ${response.status} ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.error || 'XLSX解析に失敗しました');
+        }
+        
+        console.log('✅ XLSX解析成功:', {
+            lines: result.original_result?.line_count || 0,
+            sheets: result.original_result?.sheets_found || 0
+        });
+        
+        return result;
+        
+    } catch (error) {
+        console.error('❌ XLSX解析エラー:', error);
+        throw new Error(`XLSXファイルの解析に失敗しました: ${error.message}`);
     }
 }
 
@@ -425,124 +704,102 @@ async function readFileContent(file) {
 
 // AI処理（Gemini API統合による高精度版）
 async function processWithAI(fileContent, file) {
-    console.log('🚀 === 歯科AIシステム 処理開始 ===');
-    console.log('📂 ファイル情報:', {
-        名前: file.name,
-        サイズ: Math.round(file.size / 1024) + 'KB',
-        タイプ: file.type,
-        最終更新: new Date(file.lastModified).toLocaleString('ja-JP')
-    });
-    console.log('📝 内容長:', fileContent.length + '文字');
-    console.log('⏰ 処理開始時刻:', new Date().toLocaleString('ja-JP'));
+    // ファイル情報は既にstartProcessing関数でログ出力済み
     
     // 1. 事前妥当性検証（歯科カウンセリング関連かどうかAIで判定）
-    console.log('🔍 ステップ1: 内容妥当性検証開始');
+    addProcessingLog('🔍 ファイルの内容をチェックしています', 'info');
     let validationResult;
     try {
         validationResult = await validateDentalContent(fileContent);
-        console.log('✅ 妥当性検証完了:', {
-            有効: validationResult.isValid ? '✅ 有効' : '❌ 無効',
-            信頼度: Math.round((validationResult.confidence || 0) * 100) + '%',
-            理由: validationResult.reason || '問題なし'
-        });
+        addProcessingLog(`✅ ファイルの内容は${validationResult.isValid ? '正常' : '異常'}です（信頼度: ${Math.round((validationResult.confidence || 0) * 100)}%）`, 'success');
         
         if (!validationResult.isValid) {
-            console.error('❌ ファイル検証失敗:', validationResult.reason);
+            addProcessingLog(`❌ ファイルの内容に問題があります: ${validationResult.reason}`, 'error');
             throw new Error(`❌ 歯科カウンセリング以外の内容が検出されました: ${validationResult.reason}\n\n正しいファイルをアップロードしてください。`);
         }
     } catch (error) {
-        console.error('❌ 妥当性検証エラー:', error.message);
+        addProcessingLog(`❌ 妥当性検証エラー: ${error.message}`, 'error');
         throw error;
     }
     
     // 2. ファイル形式の判定
-    console.log('📊 ステップ2: ファイル内容分析開始');
+    addProcessingLog('📊 ファイルの種類と内容を詳しく分析しています', 'info');
     let fileExtension, fileAnalysis;
     try {
         fileExtension = file.name.split('.').pop().toLowerCase();
-        console.log('🔤 ファイル拡張子:', fileExtension);
+        addProcessingLog(`📁 ファイル形式: ${fileExtension}ファイル`, 'info');
         
         fileAnalysis = analyzeFileContent(fileContent, fileExtension, file.name);
-        console.log('✅ ファイル分析完了:', {
-            形式: fileAnalysis.format,
-            構造: fileAnalysis.structure,
-            総行数: fileAnalysis.totalLines,
-            会話数: fileAnalysis.conversations?.length || 0,
-            話者数: fileAnalysis.speakers?.length || 0,
-            文字数: fileAnalysis.totalCharacters || 0
-        });
+        addProcessingLog(`✅ ${fileAnalysis.format}形式のファイルで、${fileAnalysis.totalLines}行のデータから${fileAnalysis.conversations?.length || 0}件の会話を発見しました`, 'success');
     } catch (error) {
-        console.error('❌ ファイル分析エラー:', error.message);
+        addProcessingLog(`❌ ファイル分析エラー: ${error.message}`, 'error');
         throw new Error('ファイル分析に失敗しました: ' + error.message);
     }
     
     // 3. Gemini AIを使った高精度解析
-    console.log('🤖 ステップ3: Gemini API統合開始');
+    addProcessingLog('🤖 GoogleのAI（Gemini）と連携しています', 'info');
     let geminiIntegration;
     try {
+        addProcessingLog('🔧 AIシステムを準備しています', 'info');
         geminiIntegration = new GeminiIntegration();
+        addProcessingLog('🔌 AIサービスへの接続を確認しています', 'info');
         const isConnected = await geminiIntegration.checkConnection();
-        console.log('🔗 Gemini API接続状態:', {
-            接続: isConnected ? '✅ 成功' : '❌ 失敗',
-            エンドポイント: geminiIntegration.apiEndpoint || 'なし',
-            設定: geminiIntegration.isConnected ? '有効' : '無効'
-        });
+        
+        if (isConnected) {
+            addProcessingLog('✅ AIサービスに正常に接続しました', 'success');
+        } else {
+            addProcessingLog('⚠️ AIサービスに接続できません - 代替手段で分析します', 'warning');
+        }
     } catch (error) {
-        console.error('❌ Gemini API統合エラー:', error.message);
+        addProcessingLog(`❌ Gemini API統合エラー: ${error.message}`, 'error');
         // エラーでも処理を継続（フォールバックモード）
         geminiIntegration = { isConnected: false, error: error.message };
     }
     
-    console.log('🤖 Gemini AI解析開始 - 元データを直接AIに送信');
-    console.log('📂 処理対象ファイル:', file.name, `(${Math.round(file.size/1024)}KB)`);
-    console.log('📊 ファイル分析結果:', {
-        形式: fileAnalysis.format,
-        総行数: fileAnalysis.totalLines,
-        会話数: fileAnalysis.conversations?.length || 0,
-        話者数: fileAnalysis.speakers?.length || 0
-    });
+    addProcessingLog('🤖 AIが会話内容を詳しく分析しています', 'info');
+    addProcessingLog(`📂 対象ファイル: ${file.name}（サイズ: ${Math.round(file.size/1024)}KB）`, 'info');
     
     // 4. 患者・医師識別（安全なルールベース優先）
-    console.log('👥 ステップ4: 患者・医師識別開始');
+    addProcessingLog('👥 会話の中から患者さんと医師を識別しています', 'info');
     let enhancedIdentification;
     let aiIdentification = null;
     let fallbackIdentification = null;
     
     if (geminiIntegration && geminiIntegration.isConnected) {
         // AI APIが接続されている場合のみAI識別を使用
-        console.log('🤖 AI識別モード: Gemini API使用');
+        addProcessingLog('🤖 AIが話者を自動識別しています', 'info');
         try {
             aiIdentification = await geminiIntegration.identifyPatientDoctor(fileContent);
-            console.log('✅ AI患者・医師識別完了:', aiIdentification);
+            addProcessingLog(`✅ AIが識別しました: 患者さん「${aiIdentification.patient_name}」、医師「${aiIdentification.doctor_name}」`, 'success');
         } catch (error) {
-            console.error('❌ AI識別エラー:', error.message);
+            addProcessingLog(`❌ AI識別エラー: ${error.message}`, 'error');
             aiIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0 };
         }
         
         // ルールベース解析（品質検証用）
-        console.log('📋 ルールベース識別実行中...');
+        addProcessingLog('📋 会話パターンから話者を推定しています', 'info');
         try {
             fallbackIdentification = identifyPatientDoctor(fileContent);
-            console.log('✅ ルールベース識別完了:', fallbackIdentification);
+            addProcessingLog(`✅ パターン分析で識別しました: 患者さん「${fallbackIdentification.patient_name}」、医師「${fallbackIdentification.doctor_name}」`, 'success');
         } catch (error) {
-            console.error('❌ ルールベース識別エラー:', error.message);
+            addProcessingLog(`❌ ルールベース識別エラー: ${error.message}`, 'error');
             fallbackIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0 };
         }
         
         // 結果の統合
-        console.log('🔀 識別結果統合中...');
+        addProcessingLog('🔀 識別結果を整理しています', 'info');
         enhancedIdentification = mergeIdentificationResults(aiIdentification, fallbackIdentification);
-        console.log('✅ 統合識別結果:', enhancedIdentification);
+        addProcessingLog(`✅ 最終結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'success');
     } else {
         // AI APIがオフラインの場合は信頼性の高いルールベースのみを使用
-        console.log('📋 ルールベース識別モード: AI API不使用（安全モード）');
+        addProcessingLog('📋 AIが使用できないため、パターン分析で識別します', 'warning');
         try {
             fallbackIdentification = identifyPatientDoctor(fileContent);
             enhancedIdentification = fallbackIdentification;
             enhancedIdentification.method = 'rules_only_safe';
-            console.log('✅ ルールベース識別結果:', enhancedIdentification);
+            addProcessingLog(`✅ パターン分析結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'success');
         } catch (error) {
-            console.error('❌ ルールベース識別エラー:', error.message);
+            addProcessingLog(`❌ ルールベース識別エラー: ${error.message}`, 'error');
             enhancedIdentification = { 
                 patient_name: '患者', 
                 doctor_name: '医師', 
@@ -554,25 +811,24 @@ async function processWithAI(fileContent, file) {
     }
     
     // 5. AI による SOAP変換（統合識別結果を使用）
-    console.log('📋 ステップ5: SOAP変換開始');
+    addProcessingLog('📋 会話内容を医療記録（SOAP形式）に変換しています', 'info');
     let soapResult = null;
     let fallbackSOAP = null;
     let enhancedSOAP = null;
     
-    console.log('🔄 患者・医師情報使用:', {
-        患者名: enhancedIdentification.patient_name,
-        医師名: enhancedIdentification.doctor_name,
-        方法: enhancedIdentification.method
-    });
+    addProcessingLog(`👥 識別結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'info');
     
     if (geminiIntegration && geminiIntegration.isConnected) {
-        console.log('🤖 AI SOAP変換実行中...');
+        addProcessingLog('🤖 AIが会話内容を医療記録に変換しています', 'info');
+        console.log('🚀 DEBUG: 患者名:', enhancedIdentification.patient_name);
+        console.log('🚀 DEBUG: 医師名:', enhancedIdentification.doctor_name);
         try {
             soapResult = await geminiIntegration.convertToSOAP(
                 fileContent, 
                 enhancedIdentification.patient_name, 
                 enhancedIdentification.doctor_name
             );
+            console.log('🚀 DEBUG: convertToSOAP応答受信:', soapResult);
             console.log('✅ AI SOAP変換完了:', {
                 S_length: soapResult?.S?.length || 0,
                 O_length: soapResult?.O?.length || 0,
@@ -581,10 +837,12 @@ async function processWithAI(fileContent, file) {
                 confidence: soapResult?.confidence || 0
             });
         } catch (error) {
-            console.error('❌ AI SOAP変換エラー:', error.message);
+            console.error('❌ AI SOAP変換エラー:', error);
+            console.error('❌ AI SOAP変換エラー詳細:', error.message, error.stack);
             soapResult = { S: '', O: '', A: '', P: '', confidence: 0, error: error.message };
         }
     } else {
+        console.log('⚠️ DEBUG: AI SOAP変換スキップ - geminiIntegration:', !!geminiIntegration, 'isConnected:', geminiIntegration?.isConnected);
         console.log('⏭️ AI SOAP変換スキップ（API未接続）');
         soapResult = { S: '', O: '', A: '', P: '', confidence: 0, method: 'api_offline' };
     }
@@ -623,7 +881,7 @@ async function processWithAI(fileContent, file) {
     try {
         qualityAnalysis = await analyzeQualityWithAI(fileContent, fileAnalysis, soapResult);
         console.log('✅ 品質分析完了:', {
-            communication_quality: Math.round((qualityAnalysis?.communication_quality || 0) * 100) + '%',
+            success_possibility: Math.round((qualityAnalysis?.success_possibility || 0) * 100) + '%',
             patient_understanding: Math.round((qualityAnalysis?.patient_understanding || 0) * 100) + '%',
             treatment_consent: Math.round((qualityAnalysis?.treatment_consent_likelihood || 0) * 100) + '%',
             method: qualityAnalysis?.method
@@ -631,7 +889,7 @@ async function processWithAI(fileContent, file) {
     } catch (error) {
         console.error('❌ 品質分析エラー:', error.message);
         qualityAnalysis = {
-            communication_quality: 0.5,
+            success_possibility: 0.5,
             patient_understanding: 0.5,
             treatment_consent_likelihood: 0.5,
             improvement_suggestions: ['エラーのため分析不可'],
@@ -685,7 +943,7 @@ async function processWithAI(fileContent, file) {
         P文字数: enhancedSOAP?.P?.length || 0
     });
     console.log('📊 品質スコア:', {
-        コミュニケーション: Math.round((qualityAnalysis?.communication_quality || 0) * 100) + '%',
+        成約可能性: Math.round((qualityAnalysis?.success_possibility || 0) * 100) + '%',
         患者理解度: Math.round((qualityAnalysis?.patient_understanding || 0) * 100) + '%',
         治療同意: Math.round((qualityAnalysis?.treatment_consent_likelihood || 0) * 100) + '%'
     });
@@ -1627,6 +1885,7 @@ function generatePlanSection(doctorLines, planKeywords) {
     
     return planText.trim() || 'CR充填による修復治療、次回予約にて処置実施';
 }
+// ここでAI処理ログ表示フロー終了
 
 // SOAP品質評価
 function evaluateSOAPQuality(soapSections) {
@@ -1809,8 +2068,8 @@ function analyzeQualityFromRealData(fileContent, fileAnalysis) {
     
     // 実データから動的に品質を計算
     const realMetrics = {
-        // コミュニケーション品質：実際の対話の深さを測定
-        communication_quality: calculateRealCommunicationQuality(fileContent, conversations),
+        // 成約可能性：実際の対話の深さを測定
+        success_possibility: calculateSuccessPossibility(fileContent, conversations),
         
         // 患者理解度：実際の患者の反応と質問から計算
         patient_understanding: calculateRealPatientUnderstanding(fileContent, conversations),
@@ -1831,25 +2090,45 @@ function analyzeQualityFromRealData(fileContent, fileAnalysis) {
     return realMetrics;
 }
 
-// 実際のコミュニケーション品質計算
-function calculateRealCommunicationQuality(content, conversations) {
+// 成約可能性計算（治療受諾・ビジネス成功の可能性）
+function calculateSuccessPossibility(content, conversations) {
     if (conversations.length === 0) return 0.1;
     
     const doctorLines = conversations.filter(c => c.role === '医師');
     const patientLines = conversations.filter(c => c.role === '患者');
+    const patientText = patientLines.map(line => line.text).join(' ');
     
-    // 実際の対話バランス
-    const balanceScore = Math.min(doctorLines.length, patientLines.length) / Math.max(doctorLines.length, patientLines.length, 1);
+    // 1. 患者の積極的な関与・関心度
+    const engagementKeywords = ['はい', 'そうですね', 'お願いします', '知りたい', '詳しく', '教えて', 'どうすれば'];
+    const engagementCount = engagementKeywords.filter(keyword => patientText.includes(keyword)).length;
+    const engagementScore = Math.min(engagementCount / 3, 1); // 3個以上で満点
     
-    // 医師の説明品質（長い説明があるほど高品質）
-    const avgDoctorLength = doctorLines.reduce((sum, line) => sum + line.text.length, 0) / doctorLines.length || 0;
-    const explanationScore = Math.min(avgDoctorLength / 50, 1); // 50文字を基準
+    // 2. 治療受諾・前向きな反応
+    const acceptanceKeywords = ['やります', '受けます', 'よろしく', '同意', 'お任せ', '頑張ります', '治したい'];
+    const hesitationKeywords = ['考えさせて', '迷って', '不安', '心配', '怖い', '痛そう', '高い', '時間が'];
+    const acceptanceCount = acceptanceKeywords.filter(keyword => patientText.includes(keyword)).length;
+    const hesitationCount = hesitationKeywords.filter(keyword => patientText.includes(keyword)).length;
+    const acceptanceScore = Math.max(0, (acceptanceCount - hesitationCount * 0.5) / 2); // 迷いは半分減点
     
-    // 質問の数（双方向コミュニケーション）
-    const questionMarks = (content.match(/\?|？/g) || []).length;
-    const questionScore = Math.min(questionMarks / 5, 1); // 5個の質問を基準
+    // 3. 費用・治療計画への言及と受容性
+    const hasCostDiscussion = content.includes('費用') || content.includes('料金') || content.includes('価格') || content.includes('円');
+    const hasScheduleDiscussion = content.includes('次回') || content.includes('スケジュール') || content.includes('予約');
+    const planningScore = (hasCostDiscussion ? 0.3 : 0) + (hasScheduleDiscussion ? 0.4 : 0);
     
-    return Math.min(0.95, (balanceScore * 0.4 + explanationScore * 0.4 + questionScore * 0.2));
+    // 4. 信頼関係・安心感の構築
+    const trustKeywords = ['安心', '信頼', '先生', 'ありがとう', '良かった', '分かりました', '納得'];
+    const trustCount = trustKeywords.filter(keyword => patientText.includes(keyword)).length;
+    const trustScore = Math.min(trustCount / 2, 1); // 2個以上で満点
+    
+    // 総合成約可能性の計算（重み付け）
+    const totalScore = (
+        engagementScore * 0.3 +    // 積極的関与 30%
+        acceptanceScore * 0.35 +   // 受諾姿勢 35%
+        planningScore * 0.2 +      // 具体的計画 20%
+        trustScore * 0.15          // 信頼関係 15%
+    );
+    
+    return Math.min(0.95, Math.max(0.05, totalScore));
 }
 
 // 実際の患者理解度計算
@@ -2170,70 +2449,201 @@ function analyzeQuality(content, fileAnalysis) {
     throw new Error('固定値計算は使用禁止 - AI分析またはanalyzeQualityFromRealDataを使用してください');
 }
 
+// データ構造最適化関数
+function optimizeDataStructure(result) {
+    console.log('🔧 データ構造最適化開始');
+    
+    const optimized = {
+        identification: result.identification || {},
+        soap: {},
+        quality: result.quality || {},
+        sourceFile: {
+            content: result.sourceFile?.content || result.fileContent || result.content || '',
+            name: result.sourceFile?.name || result.fileName || 'unknown',
+            size: result.sourceFile?.size || 0
+        },
+        processLogs: []
+    };
+    
+    // SOAP構造の最適化と統一（直接構造を最優先）
+    const soapData = result.soap || {};
+    
+    // 最優先: API標準の直接フィールド（Gemini APIレスポンス形式）
+    if (soapData.subjective || soapData.objective || soapData.assessment || soapData.plan) {
+        console.log('📋 Using direct API fields: soapData');
+        optimized.soap = {
+            subjective: soapData.subjective || soapData.S || '',
+            objective: soapData.objective || soapData.O || '',
+            assessment: soapData.assessment || soapData.A || '',
+            plan: soapData.plan || soapData.P || '',
+            confidence: soapData.confidence || 0,
+            method: soapData.method || 'gemini_api'
+        };
+    }
+    // フォールバック: 深いネスト構造からの取得
+    else if (soapData.soap) {
+        console.log('📋 Using nested structure: soapData.soap');
+        optimized.soap = {
+            subjective: soapData.soap.subjective || '',
+            objective: soapData.soap.objective || '',
+            assessment: soapData.soap.assessment || '',
+            plan: soapData.soap.plan || '',
+            confidence: soapData.confidence || 0,
+            method: soapData.method || 'nested'
+        };
+    }
+    // フォールバック: fallback_dataからの取得
+    else if (soapData.fallback_data) {
+        console.log('📋 Using fallback structure: soapData.fallback_data');
+        optimized.soap = {
+            subjective: soapData.fallback_data.S || '',
+            objective: soapData.fallback_data.O || '',
+            assessment: soapData.fallback_data.A || '',
+            plan: soapData.fallback_data.P || '',
+            confidence: soapData.fallback_data.confidence || 0,
+            method: 'fallback'
+        };
+    }
+    // 最後の手段: 空データ
+    else {
+        console.log('⚠️ No SOAP data found, using empty structure');
+        optimized.soap = {
+            subjective: '',
+            objective: '',
+            assessment: '',
+            plan: '',
+            confidence: 0,
+            method: 'empty'
+        };
+    }
+    
+    // 処理ログの統合（Gemini API形式対応）
+    const allLogs = [];
+    
+    // 識別処理ログ
+    if (result.identification?.ai_data?.process_log) {
+        allLogs.push('=== 患者・医師識別 ===');
+        allLogs.push(...result.identification.ai_data.process_log);
+    }
+    
+    // SOAP変換ログ（Gemini API標準形式）
+    if (soapData.process_log && Array.isArray(soapData.process_log)) {
+        allLogs.push('=== SOAP変換 ===');
+        allLogs.push(...soapData.process_log);
+    }
+    
+    // 品質分析ログ
+    if (result.quality?.process_log) {
+        allLogs.push('=== 品質分析 ===');
+        allLogs.push(...result.quality.process_log);
+    }
+    
+    // 統合ログが空の場合、基本的な処理ログを追加
+    if (allLogs.length === 0 && (soapData.subjective || soapData.objective)) {
+        allLogs.push('✅ Gemini API処理完了');
+        allLogs.push(`📊 SOAP変換: ${soapData.confidence ? Math.round(soapData.confidence * 100) + '%' : '不明'}の信頼度`);
+        allLogs.push(`🔧 処理方法: ${optimized.soap.method}`);
+    }
+    
+    optimized.processLogs = allLogs;
+    console.log('📋 Process logs integrated:', allLogs.length + ' items');
+    
+    console.log('✅ データ構造最適化完了:', {
+        soapMethod: optimized.soap.method,
+        soapDataLength: {
+            S: optimized.soap.subjective.length,
+            O: optimized.soap.objective.length,
+            A: optimized.soap.assessment.length,
+            P: optimized.soap.plan.length
+        },
+        logsCount: optimized.processLogs.length
+    });
+    
+    return optimized;
+}
+
 // 結果表示
 function displayResults(result) {
-    // 基本情報
-    DOM.patientName().textContent = result.identification.patient_name;
-    DOM.doctorName().textContent = result.identification.doctor_name;
-    DOM.sessionDate().textContent = new Date().toLocaleString('ja-JP');
-    DOM.sourceTool().textContent = selectedTool === 'plaud' ? 'PLAUD NOTE' : 'Notta';
+    console.log('🖥️ displayResults開始 - シンプル結果表示', result);
     
-    // SOAP表示
-    const soapElements = DOM.soapElements();
-    soapElements.s.display.textContent = result.soap.S;
-    soapElements.o.display.textContent = result.soap.O;
-    soapElements.a.display.textContent = result.soap.A;
-    soapElements.p.display.textContent = result.soap.P;
+    // データ構造最適化
+    const optimizedResult = optimizeDataStructure(result);
     
-    soapElements.s.input.value = result.soap.S;
-    soapElements.o.input.value = result.soap.O;
-    soapElements.a.input.value = result.soap.A;
-    soapElements.p.input.value = result.soap.P;
+    // 1. 元データ表示
+    const originalDataEl = document.getElementById('original-data-content');
+    if (originalDataEl && optimizedResult.sourceFile.content) {
+        originalDataEl.textContent = optimizedResult.sourceFile.content.substring(0, 1000) + (optimizedResult.sourceFile.content.length > 1000 ? '\n\n... (続きあり)' : '');
+    }
     
-    // 分析結果表示
-    console.log('🖥️ UI表示する品質値:', {
-        communication_quality: result.quality.communication_quality,
-        patient_understanding: result.quality.patient_understanding,
-        treatment_consent_likelihood: result.quality.treatment_consent_likelihood,
-        calculated_display: {
-            communication: Math.round(result.quality.communication_quality * 100) + '%',
-            understanding: Math.round(result.quality.patient_understanding * 100) + '%',
-            consent: Math.round(result.quality.treatment_consent_likelihood * 100) + '%'
+    // 2. SOAP記録表示
+    const soapS = document.getElementById('soap-s');
+    const soapO = document.getElementById('soap-o');
+    const soapA = document.getElementById('soap-a');
+    const soapP = document.getElementById('soap-p');
+    
+    console.log('🔍 SOAP表示データ確認:', optimizedResult.soap);
+    if (soapS) soapS.value = optimizedResult.soap.subjective || 'S情報が不足しています';
+    if (soapO) soapO.value = optimizedResult.soap.objective || 'O情報が不足しています';
+    if (soapA) soapA.value = optimizedResult.soap.assessment || 'A情報が不足しています';
+    if (soapP) soapP.value = optimizedResult.soap.plan || 'P情報が不足しています';
+
+    // 3. 評価表示  
+    const evalComm = document.getElementById('eval-communication');
+    const evalUnder = document.getElementById('eval-understanding');
+    const evalConsent = document.getElementById('eval-consent');
+    
+    if (evalComm) evalComm.textContent = `${Math.round((optimizedResult.quality.success_possibility || 0) * 100)}%`;
+    if (evalUnder) evalUnder.textContent = `${Math.round((optimizedResult.quality.patient_understanding || 0) * 100)}%`;
+    if (evalConsent) evalConsent.textContent = `${Math.round((optimizedResult.quality.treatment_consent_likelihood || 0) * 100)}%`;
+    
+    // 4. 処理ログ表示（最適化されたログ使用）
+    const processLogEl = document.getElementById('process-log-display');
+    if (processLogEl) {
+        if (optimizedResult.processLogs.length > 0) {
+            processLogEl.textContent = optimizedResult.processLogs.join('\n');
+            console.log('✅ 処理ログ表示完了:', optimizedResult.processLogs.length + '行');
+        } else {
+            processLogEl.textContent = '処理ログが利用できません';
+            console.log('⚠️ 処理ログが空です');
         }
-    });
+    }
     
-    DOM.communicationScore().textContent = `${Math.round(result.quality.communication_quality * 100)}%`;
-    DOM.understandingScore().textContent = `${Math.round(result.quality.patient_understanding * 100)}%`;
-    DOM.consentScore().textContent = `${Math.round(result.quality.treatment_consent_likelihood * 100)}%`;
-    
-    // 改善提案
-    DOM.improvementList().innerHTML = '';
-    result.quality.improvement_suggestions.forEach(suggestion => {
-        const li = document.createElement('li');
-        li.textContent = suggestion;
-        DOM.improvementList().appendChild(li);
-    });
-    
-    // 良い点
-    DOM.positiveList().innerHTML = '';
-    result.quality.positive_aspects.forEach(aspect => {
-        const li = document.createElement('li');
-        li.textContent = aspect;
-        DOM.positiveList().appendChild(li);
-    });
-    
-    // 元データ表示
-    displayRawData(result.sourceFile, result.fileAnalysis);
+    // 5. DB保存状況表示
+    const saveStatusEl = document.getElementById('save-status');
+    if (saveStatusEl) {
+        saveStatusEl.innerHTML = '<span>保存状況: 未保存</span>';
+    }
     
     // 保存ボタンを有効化
-    DOM.saveBtn().disabled = false;
+    const saveBtn = DOM.saveBtn();
+    if (saveBtn) {
+        saveBtn.disabled = false;
+    }
     
-    console.log('✅ 結果表示完了');
+    console.log('✅ displayResults完了 - シンプル結果表示完了');
 }
 
 // 元データ表示
 function displayRawData(sourceFile, analysis) {
-    const rawDataDisplay = DOM.rawDataDisplay();
+    const rawDataDisplay = document.getElementById('raw-conversation-data');
+    if (!rawDataDisplay) {
+        console.warn('⚠️ raw-conversation-data要素が見つかりません（元データ表示をスキップ）');
+        return;
+    }
+    
+    console.log('🖥️ 元データ表示開始');
+    
+    // 元データをテキストとして表示
+    if (sourceFile && sourceFile.content) {
+        rawDataDisplay.textContent = sourceFile.content;
+        console.log('✅ 元データ表示設定完了:', sourceFile.content.length + '文字');
+    } else {
+        rawDataDisplay.textContent = 'データの読み込みに失敗しました';
+        console.warn('⚠️ ソースファイルのデータが不完全です');
+    }
+    
+    // 旧処理は無効化
+    // const rawDataDisplay = DOM.rawDataDisplay();
     
     const analysisInfo = `
         <div class="raw-data-analysis">
@@ -2328,11 +2738,44 @@ function saveToDatabase() {
         
         // ダウンロード可能なJSONLファイルとして提供
         offerJSONLDownload(jsonlString, sessionId);
+
+        // サーバ保存のデモ表示（実際の保存は行わない）
+        console.log('💾 【デモ】 こんな感じで保存されます:');
+        console.log('🗃️ JSONL形式:', {
+            ファイル名: `dental_session_${sessionId}.jsonl`,
+            サイズ: `${Math.round(jsonlString.length / 1024)}KB`,
+            内容: 'SOAP記録 + AI分析結果 + メタデータ'
+        });
+        console.log('🗄️ SQLite形式:', {
+            テーブル: 'dental_sessions',
+            レコードID: sessionId,
+            インデックス: '患者名、日時、症状で検索可能'
+        });
+        // 保存状況をUI上でもデモ表示
+        const saveStatusElement = document.getElementById('save-status');
+        if (saveStatusElement) {
+            saveStatusElement.innerHTML = `
+                <div style="color: #2f855a; background: #c6f6d5; padding: 10px; border-radius: 4px;">
+                    ✅ デモ保存完了<br>
+                    📁 JSONL: dental_session_${sessionId}.jsonl (${Math.round(jsonlString.length / 1024)}KB)<br>
+                    🗄️ SQLite: dental_sessions テーブルに記録
+                </div>
+            `;
+            saveStatusElement.classList.add('saved');
+        }
         
     } catch (error) {
         console.error('❌ 保存エラー:', error);
         alert(`保存中にエラーが発生しました: ${error.message}`);
     }
+}
+
+// APIルートの推定
+function getApiRoot() {
+    const configured = (typeof window !== 'undefined') && window.DENTAL_API_ENDPOINT;
+    const base = configured || (new GeminiIntegration()).apiEndpoint;
+    // 末尾の /api/gemini を /api に正規化
+    return base.replace(/\/?api\/gemini\/?$/, '/api');
 }
 
 // 保存インデックス更新（検索・管理用）
@@ -2397,6 +2840,13 @@ function offerJSONLDownload(jsonlString, sessionId) {
 
 // 保存成功表示（JSONL形式対応・わかりやすい版）
 function displaySaveSuccess(jsonlRecord) {
+    // DB保存状況を更新
+    const saveStatusEl = document.getElementById('save-status');
+    if (saveStatusEl) {
+        saveStatusEl.innerHTML = '<span>保存状況: 保存完了</span>';
+        saveStatusEl.classList.add('saved');
+    }
+    
     const processedData = jsonlRecord.processed_data;
     const originalData = jsonlRecord.original_data;
     const validationResult = processedData.validation_result;
@@ -2559,7 +3009,12 @@ function displaySaveSuccess(jsonlRecord) {
         </div>
     `;
     
-    DOM.saveSummary().innerHTML = summary;
+    const saveSummaryEl = DOM.saveSummary();
+    if (saveSummaryEl) {
+        saveSummaryEl.innerHTML = summary;
+    } else {
+        console.error('❌ 保存サマリー表示エラー: DOM要素が見つかりません');
+    }
 }
 
 // セッションID生成
@@ -2608,12 +3063,12 @@ function resetApp() {
     // フォームリセット
     if (DOM.plaudFiles()) DOM.plaudFiles().value = '';
     if (DOM.nottaFiles()) DOM.nottaFiles().value = '';
-    DOM.plaudFileList().innerHTML = '';
-    DOM.nottaFileList().innerHTML = '';
+    if (DOM.plaudFileList()) DOM.plaudFileList().innerHTML = '';
+    if (DOM.nottaFileList()) DOM.nottaFileList().innerHTML = '';
     
     // ボタン状態リセット
-    DOM.processBtn().disabled = true;
-    DOM.saveBtn().disabled = true;
+    if (DOM.processBtn()) DOM.processBtn().disabled = true;
+    if (DOM.saveBtn()) DOM.saveBtn().disabled = true;
     
     // プログレスリセット
     updateProgress(0);
@@ -2624,8 +3079,12 @@ function resetApp() {
     console.log('🔄 アプリケーションリセット完了');
 }
 
-// 編集モード切り替え
+// 編集モード切り替え（現在のUI構造では不要）
 function toggleEditMode() {
+    console.warn('⚠️ 編集モード切り替えは現在のUI構造では使用されていません');
+    
+    // 旧処理（display要素がないため無効化）
+    /*
     editMode = !editMode;
     const soapElements = DOM.soapElements();
     
@@ -2640,6 +3099,7 @@ function toggleEditMode() {
             element.display.textContent = element.input.value;
         }
     });
+    */
     
     // 編集ボタンのテキスト更新
     const editBtn = document.querySelector('.edit-btn');
@@ -2734,7 +3194,7 @@ function loadHistoryData() {
             <div class="history-details">
                 <p>医師: ${session.session_info.doctor_name}</p>
                 <p>ソース: ${session.session_info.source_tool === 'plaud' ? 'PLAUD NOTE' : 'Notta'}</p>
-                <p>品質スコア: ${Math.round(session.quality_analysis.communication_quality * 100)}%</p>
+                <p>成約可能性: ${Math.round(session.quality_analysis.success_possibility * 100)}%</p>
             </div>
         `;
         historyList.appendChild(historyItem);

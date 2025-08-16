@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>歯科カウンセリングAIツール</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20250816-1537">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -99,7 +99,6 @@
                     <div class="format-grid">
                         <div class="format-item">
                             <h4><i class="fas fa-microphone"></i> PLAUD NOTE</h4>
-
                             <div class="code-examples">
                                 <div class="example-block">
                                     <div class="example-header">
@@ -146,71 +145,46 @@ A: 色と形で、特に右上1番です。</code></pre>
 
                         <div class="format-item">
                             <h4><i class="fas fa-file-audio"></i> Notta</h4>
-
                             <div class="code-examples">
                                 <div class="example-block">
                                     <div class="example-header">
                                         <div class="example-title">
-                                            <span class="badge csv"><span class="icon">CSV</span> 1行=1発話</span>
+                                            <span class="badge csv"><span class="icon">CSV</span> 表形式</span>
                                         </div>
                                         <span class="example-ext">.csv</span>
                                     </div>
-                                    <pre><code>start,end,speaker,text
-00:00:02.100,00:00:04.800,Patient,"前歯の見た目が気になります。"
-00:00:05.100,00:00:06.500,Dentist,"どのあたりが特に気になりますか？"</code></pre>
+                                    <pre><code>Start Time,End Time,Speaker,Text
+00:00:12,00:00:18,Speaker A,本日は前歯の見た目が気になります
+00:00:19,00:00:25,Speaker B,どのあたりが特に気になりますか</code></pre>
                                 </div>
 
                                 <div class="example-block">
                                     <div class="example-header">
                                         <div class="example-title">
-                                            <span class="badge xlsx"><span class="icon">XLSX</span> 列構成</span>
+                                            <span class="badge xlsx"><span class="icon">XLS</span> Excel</span>
                                         </div>
                                         <span class="example-ext">.xlsx</span>
                                     </div>
-                                    <pre><code>列: start | end | speaker | text
-例: 00:00:02.100 | 00:00:04.800 | Patient | 前歯の見た目が気になります。</code></pre>
+                                    <pre><code>| 開始時刻 | 終了時刻 | 話者    | 内容               |
+|----------|----------|---------|-------------------|
+| 00:12    | 00:18    | 患者    | 前歯が気になります  |
+| 00:19    | 00:25    | 医師    | どちらの前歯ですか  |</code></pre>
                                 </div>
 
                                 <div class="example-block">
                                     <div class="example-header">
                                         <div class="example-title">
-                                            <span class="badge txt"><span class="icon">TXT</span> 話者ラベル</span>
-                                        </div>
-                                        <span class="example-ext">.txt</span>
-                                    </div>
-                                    <pre><code>Patient: 前歯の見た目が気になります。
-Dentist: どのあたりが特に気になりますか？</code></pre>
-                                </div>
-
-                                <div class="example-block">
-                                    <div class="example-header">
-                                        <div class="example-title">
-                                            <span class="badge srt"><span class="icon">SRT</span> 字幕ブロック</span>
+                                            <span class="badge srt"><span class="icon">SRT</span> 字幕</span>
                                         </div>
                                         <span class="example-ext">.srt</span>
                                     </div>
                                     <pre><code>1
-00:00:02,100 --> 00:00:04,800
-前歯の見た目が気になります。
+00:00:12,400 --> 00:00:18,200
+本日は前歯の見た目が気になります
 
 2
-00:00:05,100 --> 00:00:06,500
+00:00:19,100 --> 00:00:25,800
 どのあたりが特に気になりますか？</code></pre>
-                                </div>
-
-                                <div class="example-block">
-                                    <div class="example-header">
-                                        <div class="example-title">
-                                            <span class="badge audio"><span class="icon">AUDIO</span> メタ</span>
-                                        </div>
-                                        <span class="example-ext">.mp3 / .wav</span>
-                                    </div>
-                                    <pre><code>{
-  "sampleRateHz": 44100,
-  "channels": 2,
-  "durationSec": 305.2,
-  "format": "mp3"
-}</code></pre>
                                 </div>
                             </div>
                         </div>
@@ -220,451 +194,113 @@ Dentist: どのあたりが特に気になりますか？</code></pre>
 
             <!-- Step 2: AI処理中 -->
             <div class="step-content" id="step-2" style="display: none;">
-                <div class="card">
-                    <div class="card-header">
-                        <h2><i class="fas fa-robot"></i> AI処理中</h2>
-                        <p>音声記録を解析してSOAP形式に変換しています</p>
+                <div class="processing-card">
+                    <div class="processing-animation">
+                        <div class="spinner"></div>
+                        <h2>AI処理中...</h2>
+                        <p id="processing-status">ファイル解析を開始しています</p>
                     </div>
-                    
-                    <div class="processing-container">
-                        <div class="process-visualization">
-                            <div class="process-step" id="process-step-1">
-                                <div class="process-icon">
-                                    <i class="fas fa-file-text"></i>
-                                </div>
-                                <div class="process-info">
-                                    <h4>ファイル解析</h4>
-                                    <p id="step-1-status">待機中...</p>
-                                </div>
-                                <div class="process-status">
-                                    <div class="status-indicator" id="status-1"></div>
-                                </div>
-                            </div>
-                            
-                            <div class="process-step" id="process-step-2">
-                                <div class="process-icon">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <div class="process-info">
-                                    <h4>患者・医師特定</h4>
-                                    <p id="step-2-status">待機中...</p>
-                                </div>
-                                <div class="process-status">
-                                    <div class="status-indicator" id="status-2"></div>
-                                </div>
-                            </div>
-                            
-                            <div class="process-step" id="process-step-3">
-                                <div class="process-icon">
-                                    <i class="fas fa-notes-medical"></i>
-                                </div>
-                                <div class="process-info">
-                                    <h4>SOAP変換</h4>
-                                    <p id="step-3-status">待機中...</p>
-                                </div>
-                                <div class="process-status">
-                                    <div class="status-indicator" id="status-3"></div>
-                                </div>
-                            </div>
-                            
-                            <div class="process-step" id="process-step-4">
-                                <div class="process-icon">
-                                    <i class="fas fa-chart-line"></i>
-                                </div>
-                                <div class="process-info">
-                                    <h4>品質分析</h4>
-                                    <p id="step-4-status">待機中...</p>
-                                </div>
-                                <div class="process-status">
-                                    <div class="status-indicator" id="status-4"></div>
-                                </div>
-                            </div>
-                        </div>
-                        
+                    <div class="processing-progress">
                         <div class="progress-bar">
                             <div class="progress-fill" id="progress-fill"></div>
                         </div>
-                        <div class="progress-text" id="progress-text">0%</div>
+                        <div class="progress-text">
+                            <span id="progress-percentage">0%</span>
+                            <span id="progress-eta">推定残り時間を計算中...</span>
+                        </div>
+                    </div>
+                    <div class="processing-logs">
+                        <h3>処理ログ</h3>
+                        <div id="processing-log-list" class="log-list"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Step 3: 結果確認 -->
+            <!-- Step 3: 解析結果表示 -->
             <div class="step-content" id="step-3" style="display: none;">
-                <div class="results-grid">
-                    <!-- 処理結果サマリー -->
-                    <div class="card result-summary">
-                        <div class="card-header">
-                            <h2><i class="fas fa-check-circle"></i> 処理完了</h2>
+                
+                <!-- 1. 元データ -->
+                <div class="result-section">
+                    <h3><i class="fas fa-file-text"></i> 元データ</h3>
+                    <div class="original-data-display" id="original-data-content">
+                        <!-- 元のテキストデータを表示 -->
+                    </div>
+                </div>
+
+                <!-- 2. SOAP記録 -->
+                <div class="result-section">
+                    <h3><i class="fas fa-notes-medical"></i> SOAP記録</h3>
+                    <div class="soap-simple-grid">
+                        <div class="soap-item">
+                            <label>S (主観的情報)</label>
+                            <textarea id="soap-s" readonly></textarea>
                         </div>
-                        <div class="summary-info">
-                            <div class="info-item">
-                                <label>患者名:</label>
-                                <span id="patient-name">-</span>
-                            </div>
-                            <div class="info-item">
-                                <label>医師名:</label>
-                                <span id="doctor-name">-</span>
-                            </div>
-                            <div class="info-item">
-                                <label>処理日時:</label>
-                                <span id="session-date">-</span>
-                            </div>
-                            <div class="info-item">
-                                <label>データソース:</label>
-                                <span id="source-tool">-</span>
-                            </div>
+                        <div class="soap-item">
+                            <label>O (客観的所見)</label>
+                            <textarea id="soap-o" readonly></textarea>
+                        </div>
+                        <div class="soap-item">
+                            <label>A (評価・診断)</label>
+                            <textarea id="soap-a" readonly></textarea>
+                        </div>
+                        <div class="soap-item">
+                            <label>P (治療計画)</label>
+                            <textarea id="soap-p" readonly></textarea>
                         </div>
                     </div>
-                    
-                    <!-- SOAP記録 -->
-                    <div class="card soap-card">
-                        <div class="card-header">
-                            <h2><i class="fas fa-notes-medical"></i> SOAP記録</h2>
+                </div>
+
+                <!-- 3. 評価 -->
+                <div class="result-section">
+                    <h3><i class="fas fa-chart-line"></i> 評価</h3>
+                    <div class="evaluation-summary">
+                        <div class="eval-item">
+                            <span>成約可能性</span>
+                            <span id="eval-communication">-%</span>
                         </div>
-                        <div class="soap-grid">
-                            <div class="soap-item">
-                                <h4><span class="soap-label">S</span> 主観的情報</h4>
-                                <div class="soap-content" id="soap-s-display"></div>
-                                <textarea id="soap-s" style="display: none;"></textarea>
-                            </div>
-                            <div class="soap-item">
-                                <h4><span class="soap-label">O</span> 客観的所見</h4>
-                                <div class="soap-content" id="soap-o-display"></div>
-                                <textarea id="soap-o" style="display: none;"></textarea>
-                            </div>
-                            <div class="soap-item">
-                                <h4><span class="soap-label">A</span> 評価・診断</h4>
-                                <div class="soap-content" id="soap-a-display"></div>
-                                <textarea id="soap-a" style="display: none;"></textarea>
-                            </div>
-                            <div class="soap-item">
-                                <h4><span class="soap-label">P</span> 計画</h4>
-                                <div class="soap-content" id="soap-p-display"></div>
-                                <textarea id="soap-p" style="display: none;"></textarea>
-                            </div>
+                        <div class="eval-item">
+                            <span>患者理解度</span>
+                            <span id="eval-understanding">-%</span>
                         </div>
-                        <button class="edit-btn" id="edit-mode-btn">
-                            <i class="fas fa-edit"></i> 編集
-                        </button>
-                    </div>
-                    
-                    <!-- AI分析結果 -->
-                    <div class="card analysis-card">
-                        <div class="card-header">
-                            <h2><i class="fas fa-brain"></i> AI分析結果</h2>
-                        </div>
-                        <div class="analysis-content" id="quality-analysis">
-                            <div class="metrics-grid">
-                                <div class="metric-item">
-                                    <div class="metric-value" id="communication-score">0%</div>
-                                    <div class="metric-label">コミュニケーション品質</div>
-                                </div>
-                                <div class="metric-item">
-                                    <div class="metric-value" id="understanding-score">0%</div>
-                                    <div class="metric-label">患者理解度</div>
-                                </div>
-                                <div class="metric-item">
-                                    <div class="metric-value" id="consent-score">0%</div>
-                                    <div class="metric-label">治療同意可能性</div>
-                                </div>
-                            </div>
-                            
-                            <div class="insights-section">
-                                <div class="insights-column">
-                                    <h4><i class="fas fa-lightbulb"></i> 改善提案</h4>
-                                    <ul id="improvement-list"></ul>
-                                </div>
-                                <div class="insights-column">
-                                    <h4><i class="fas fa-thumbs-up"></i> 良い点</h4>
-                                    <ul id="positive-list"></ul>
-                                </div>
-                            </div>
+                        <div class="eval-item">
+                            <span>治療同意</span>
+                            <span id="eval-consent">-%</span>
                         </div>
                     </div>
-                    
-                    <!-- 元データプレビュー -->
-                    <div class="card raw-data-card">
-                        <div class="card-header">
-                            <h2><i class="fas fa-file-alt"></i> 元データ</h2>
-                            <button class="toggle-btn" id="raw-data-toggle">
-                                <i class="fas fa-eye"></i> 表示切替
-                            </button>
-                        </div>
-                        <div class="raw-data-content" id="raw-data-display"></div>
+                </div>
+
+                <!-- 4. DB保存 -->
+                <div class="result-section">
+                    <h3><i class="fas fa-database"></i> DB保存</h3>
+                    <div class="save-status" id="save-status">
+                        <span>保存状況: 未保存</span>
+                    </div>
+                </div>
+
+                <!-- 処理ログ -->
+                <div class="result-section">
+                    <h3><i class="fas fa-list"></i> 処理ログ</h3>
+                    <div class="process-log" id="process-log-display">
+                        <!-- 処理ログをここに表示 -->
                     </div>
                 </div>
                 
                 <div class="action-buttons">
                     <button id="save-soap" class="primary-btn">
-                        <i class="fas fa-save"></i> データベースに保存
+                        <i class="fas fa-save"></i> SOAP記録を保存
                     </button>
-                    <button class="secondary-btn" id="reset-app-btn">
-                        <i class="fas fa-redo"></i> 新しい処理
+                    <button id="new-analysis" class="secondary-btn">
+                        <i class="fas fa-plus"></i> 新規解析
                     </button>
-                    <button class="info-btn" id="open-settings-btn">
-                        <i class="fas fa-cog"></i> 設定
+                    <button id="export-data" class="secondary-btn">
+                        <i class="fas fa-download"></i> データ出力
                     </button>
-                </div>
-
-                <!-- データベース保存仕様（視認性改善版） -->
-                <div class="db-specification-panel">
-                    <div class="db-spec-header">
-                        <h3><i class="fas fa-database"></i> データベース保存仕様</h3>
-                        <p>SOAP記録は以下の形式でデータベースに保存されます</p>
-                    </div>
-                    
-                    <div class="db-spec-grid">
-                        <div class="db-spec-card">
-                            <div class="spec-card-header">
-                                <h4>テーブル構造</h4>
-                                <span class="spec-badge">counseling_sessions</span>
-                            </div>
-                            <div class="spec-content">
-                                <div class="spec-item">
-                                    <span class="field-name">id</span>
-                                    <span class="field-type">TEXT(50) PRIMARY KEY</span>
-                                    <span class="field-desc">セッション識別子</span>
-                                </div>
-                                <div class="spec-item">
-                                    <span class="field-name">patient_id</span>
-                                    <span class="field-type">TEXT</span>
-                                    <span class="field-desc">患者ID</span>
-                                </div>
-                                <div class="spec-item">
-                                    <span class="field-name">doctor_id</span>
-                                    <span class="field-type">TEXT</span>
-                                    <span class="field-desc">医師ID</span>
-                                </div>
-                                <div class="spec-item">
-                                    <span class="field-name">soap_note</span>
-                                    <span class="field-type">JSON</span>
-                                    <span class="field-desc">SOAP記録データ</span>
-                                </div>
-                                <div class="spec-item">
-                                    <span class="field-name">元データ</span>
-                                    <span class="field-type">JSONL</span>
-                                    <span class="field-desc">原文データ（完全保存）</span>
-                                </div>
-                                <div class="spec-item">
-                                    <span class="field-name">confidence_score</span>
-                                    <span class="field-type">REAL</span>
-                                    <span class="field-desc">信頼度（0.0-1.0）</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="db-spec-card">
-                            <div class="spec-card-header">
-                                <h4>SOAP記録フォーマット</h4>
-                                <span class="spec-badge">JSON構造</span>
-                            </div>
-                            <div class="spec-content">
-                                <div class="json-example">
-                                    <div class="json-field">
-                                        <span class="json-key">"S"</span>: 主観的情報（患者の訴え）
-                                    </div>
-                                    <div class="json-field">
-                                        <span class="json-key">"O"</span>: 客観的所見（医師の観察）
-                                    </div>
-                                    <div class="json-field">
-                                        <span class="json-key">"A"</span>: 評価・診断（医師の判断）
-                                    </div>
-                                    <div class="json-field">
-                                        <span class="json-key">"P"</span>: 計画（治療方針）
-                                    </div>
-                                    <div class="json-field">
-                                        <span class="json-key">"confidence"</span>: 信頼度スコア
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="db-spec-card">
-                            <div class="spec-card-header">
-                                <h4>保存時の動作</h4>
-                                <span class="spec-badge">自動処理</span>
-                            </div>
-                            <div class="spec-content">
-                                <div class="process-flow">
-                                    <div class="flow-step">
-                                        <span class="flow-number">1</span>
-                                        <span class="flow-text">ファイル内容を解析</span>
-                                    </div>
-                                    <div class="flow-step">
-                                        <span class="flow-number">2</span>
-                                        <span class="flow-text">SOAP形式に変換</span>
-                                    </div>
-                                    <div class="flow-step">
-                                        <span class="flow-number">3</span>
-                                        <span class="flow-text">品質分析を実行</span>
-                                    </div>
-                                    <div class="flow-step">
-                                        <span class="flow-number">4</span>
-                                        <span class="flow-text">データベースに保存</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="db-spec-note">
-                        <i class="fas fa-info-circle"></i>
-                        <span>データベース構造は初期設定のため、運用要件に応じて変更可能です。</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 4: 保存完了 -->
-            <div class="step-content" id="step-4" style="display: none;">
-                <div class="card success-card">
-                    <div class="success-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <h2>保存完了</h2>
-                    <p>SOAP記録がデータベースに正常に保存されました</p>
-                    
-                    <div class="save-summary" id="save-summary">
-                        <!-- 保存結果の詳細がここに表示される -->
-                    </div>
-
-                    <!-- 保存後ページにもDB格納仕様を明示 -->
-                    <div class="format-info-panel" style="margin-top: 16px;">
-                        <div class="format-grid">
-                            <div class="format-item">
-                                <h4><i class="fas fa-database"></i> 保存先DB仕様（再掲）</h4>
-                                <div class="code-examples">
-                                    <div class="example-block">
-                                        <div class="example-header">
-                                            <div class="example-title">
-                                                <span class="badge md"><span class="icon">TABLE</span> counseling_sessions</span>
-                                            </div>
-                                            <span class="example-ext">主要カラム</span>
-                                        </div>
-                                        <pre><code>id, patient_id, doctor_id, appointment_id,
-start_time, end_time, audio_file_path,
-transcript, soap_note(JSON), confidence_score, status,
-created_at, updated_at</code></pre>
-                                    </div>
-                                    <div class="example-block">
-                                        <div class="example-header">
-                                            <div class="example-title">
-                                                <span class="badge txt"><span class="icon">NOTE</span> 注意事項</span>
-                                            </div>
-                                            <span class="example-ext">固定/変更可</span>
-                                        </div>
-                                        <pre><code>本仕様は固定ですが将来的に変更可能です。
-スキーマ変更時はマイグレーションで既存データを保全します。</code></pre>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="action-buttons">
-                        <button class="primary-btn" id="new-process-btn">
-                            <i class="fas fa-plus"></i> 新しい処理を開始
-                        </button>
-                        <button class="secondary-btn" id="show-history-btn">
-                            <i class="fas fa-history"></i> 処理履歴を表示
-                        </button>
-                    </div>
                 </div>
             </div>
         </main>
-        
-        <!-- サイドパネル: 処理履歴 -->
-        <aside class="sidebar" id="history-sidebar" style="display: none;">
-            <div class="sidebar-header">
-                <h3><i class="fas fa-history"></i> 処理履歴</h3>
-                <button class="close-btn" id="close-history-btn">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="history-content">
-                <div class="history-list" id="history-list">
-                    <!-- 履歴アイテムがここに表示される -->
-                </div>
-            </div>
-        </aside>
-        
-        <!-- オプション設定パネル（隠し機能） -->
-        <div class="options-panel" id="options-panel" style="display: none;">
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-cog"></i> オプション設定</h3>
-                    <button class="close-btn" id="close-settings-btn">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="options-content">
-                    <!-- AIプロンプト編集セクション -->
-                    <div class="option-section">
-                        <h4><i class="fas fa-brain"></i> AI プロンプト設定</h4>
-                        
-                        <div class="option-item">
-                            <label for="soap-prompt-editor">歯科専門SOAP変換プロンプト</label>
-                            <div class="prompt-editor-container">
-                                <textarea id="soap-prompt-editor" class="prompt-editor" rows="15" placeholder="プロンプトを編集..."></textarea>
-                                <div class="prompt-actions">
-                                    <button id="preview-prompt" class="info-btn">
-                                        <i class="fas fa-eye"></i> プレビュー
-                                    </button>
-                                    <button id="reset-prompt" class="secondary-btn">
-                                        <i class="fas fa-undo"></i> デフォルトに戻す
-                                    </button>
-                                    <button id="save-prompt" class="primary-btn">
-                                        <i class="fas fa-save"></i> 保存
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="prompt-status" class="status-text">デフォルトプロンプト使用中</div>
-                        </div>
-
-                        <div class="option-item">
-                            <label for="identification-prompt-editor">患者・医師特定プロンプト</label>
-                            <div class="prompt-editor-container">
-                                <textarea id="identification-prompt-editor" class="prompt-editor" rows="8" placeholder="プロンプトを編集..."></textarea>
-                                <div class="prompt-actions">
-                                    <button id="preview-identification-prompt" class="info-btn">
-                                        <i class="fas fa-eye"></i> プレビュー
-                                    </button>
-                                    <button id="reset-identification-prompt" class="secondary-btn">
-                                        <i class="fas fa-undo"></i> デフォルトに戻す
-                                    </button>
-                                    <button id="save-identification-prompt" class="primary-btn">
-                                        <i class="fas fa-save"></i> 保存
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="identification-prompt-status" class="status-text">デフォルトプロンプト使用中</div>
-                        </div>
-                    </div>
-
-                    <!-- 既存の設定項目 -->
-                    <div class="option-section">
-                        <h4><i class="fas fa-calendar"></i> データ連携設定</h4>
-                        <div class="option-item">
-                            <label>予約データ連携</label>
-                            <input type="file" id="appointment-csv" accept=".csv">
-                            <button id="load-appointments" class="secondary-btn">読み込み</button>
-                            <div id="appointment-status" class="status-text">未設定</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
-    <!-- ローディングオーバーレイ -->
-    <div class="loading-overlay" id="loading-overlay" style="display: none;">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <p id="loading-message">処理中...</p>
-        </div>
-    </div>
-    
-    <script src="script.js"></script>
-    <script src="gemini_integration.js"></script>
+    <script src="gemini_integration.js?v=20250816-1537"></script>
+    <script src="script.js?v=20250816-1537"></script>
 </body>
 </html>
