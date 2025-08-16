@@ -1,13 +1,13 @@
 {
   "functions": {
-    "api/*.py": {
+    "ui/api/*.py": {
       "runtime": "@vercel/python"
     }
   },
   "rewrites": [
     {
       "source": "/api/gemini/(.*)",
-      "destination": "/api/$1"
+      "destination": "/ui/api/$1"
     }
   ]
 }
