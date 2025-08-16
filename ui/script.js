@@ -2066,16 +2066,26 @@ function analyzeQualityFromRealData(fileContent, fileAnalysis) {
     const conversations = fileAnalysis.conversations || [];
     const lines = fileContent.split('\n').filter(line => line.trim());
     
-    // 実データから動的に品質を計算
+    // 実データから動的に品質を計算（根拠説明付き）
+    const successData = calculateSuccessPossibility(fileContent, conversations);
+    const understandingData = calculateRealPatientUnderstanding(fileContent, conversations);
+    const consentData = calculateRealConsentLikelihood(fileContent, conversations);
+    
     const realMetrics = {
         // 成約可能性：実際の対話の深さを測定
-        success_possibility: calculateSuccessPossibility(fileContent, conversations),
+        success_possibility: successData.success_possibility || successData,
+        success_possibility_reasoning: successData.reasoning || '詳細分析なし',
+        success_possibility_breakdown: successData.breakdown || {},
         
         // 患者理解度：実際の患者の反応と質問から計算
-        patient_understanding: calculateRealPatientUnderstanding(fileContent, conversations),
+        patient_understanding: understandingData.patient_understanding || understandingData,
+        patient_understanding_reasoning: understandingData.reasoning || '詳細分析なし',
+        patient_understanding_breakdown: understandingData.breakdown || {},
         
         // 治療同意可能性：実際の会話内容から判定
-        treatment_consent_likelihood: calculateRealConsentLikelihood(fileContent, conversations),
+        treatment_consent_likelihood: consentData.treatment_consent_likelihood || consentData,
+        treatment_consent_reasoning: consentData.reasoning || '詳細分析なし',
+        treatment_consent_breakdown: consentData.breakdown || {},
         
         // 改善提案：実データに基づく具体的提案
         improvement_suggestions: generateRealDataSuggestions(fileContent, conversations),
@@ -2083,7 +2093,7 @@ function analyzeQualityFromRealData(fileContent, fileAnalysis) {
         // 良い点：実際の会話から抽出
         positive_aspects: extractRealPositiveAspects(fileContent, conversations),
         
-        method: 'real_data_analysis'
+        method: 'real_data_analysis_with_explanations'
     };
     
     console.log('📊 実データ分析完了:', realMetrics);
@@ -2128,7 +2138,24 @@ function calculateSuccessPossibility(content, conversations) {
         trustScore * 0.15          // 信頼関係 15%
     );
     
-    return Math.min(0.95, Math.max(0.05, totalScore));
+    const finalScore = Math.min(0.95, Math.max(0.05, totalScore));
+    const percentage = Math.round(finalScore * 100);
+    
+    return {
+        success_possibility: finalScore,
+        percentage: percentage,
+        reasoning: `成約可能性 ${percentage}%の根拠:\n` +
+                  `・積極的関与: ${Math.round(engagementScore * 100)}% (検出キーワード${engagementCount}個) - 重み30%\n` +
+                  `・受諾姿勢: ${Math.round(acceptanceScore * 100)}% (積極的${acceptanceCount}個、迷い${hesitationCount}個) - 重み35%\n` +
+                  `・具体的計画: ${Math.round(planningScore * 100)}% (費用${hasCostDiscussion ? '有' : '無'}、予約${hasScheduleDiscussion ? '有' : '無'}) - 重み20%\n` +
+                  `・信頼関係: ${Math.round(trustScore * 100)}% (検出キーワード${trustCount}個) - 重み15%`,
+        breakdown: {
+            engagement: { score: engagementScore, count: engagementCount, weight: 0.3 },
+            acceptance: { score: acceptanceScore, positive: acceptanceCount, hesitation: hesitationCount, weight: 0.35 },
+            planning: { score: planningScore, cost_discussion: hasCostDiscussion, schedule_discussion: hasScheduleDiscussion, weight: 0.2 },
+            trust: { score: trustScore, count: trustCount, weight: 0.15 }
+        }
+    };
 }
 
 // 実際の患者理解度計算
@@ -2159,7 +2186,22 @@ function calculateRealPatientUnderstanding(content, conversations) {
     const avgPatientLength = patientLines.reduce((sum, line) => sum + line.text.length, 0) / patientLines.length;
     const lengthScore = Math.min(avgPatientLength / 30, 1); // 30文字を基準
     
-    return Math.min(0.95, (understandingRatio * 0.6 + lengthScore * 0.4));
+    const finalScore = Math.min(0.95, (understandingRatio * 0.6 + lengthScore * 0.4));
+    const percentage = Math.round(finalScore * 100);
+    
+    return {
+        patient_understanding: finalScore,
+        percentage: percentage,
+        reasoning: `患者理解度 ${percentage}%の根拠:\n` +
+                  `・理解表現: ${understandingCount}回 vs 混乱表現: ${confusionCount}回 (理解度${Math.round(understandingRatio * 100)}%) - 重み60%\n` +
+                  `・発言の詳細さ: 平均${Math.round(avgPatientLength)}文字 (詳細度${Math.round(lengthScore * 100)}%) - 重み40%\n` +
+                  `・患者発言総数: ${patientLines.length}件`,
+        breakdown: {
+            understanding_expressions: { count: understandingCount, ratio: understandingRatio, weight: 0.6 },
+            speech_detail: { avg_length: avgPatientLength, score: lengthScore, weight: 0.4 },
+            total_patient_lines: patientLines.length
+        }
+    };
 }
 
 // 実際の治療同意可能性計算
@@ -2188,8 +2230,25 @@ function calculateRealConsentLikelihood(content, conversations) {
     const planBonus = hasTreatmentPlan ? 0.2 : 0;
     
     const consentRatio = consentCount / (consentCount + hesitationCount + 1);
+    const finalScore = Math.min(0.95, (consentRatio * 0.7 + planBonus + 0.1));
+    const percentage = Math.round(finalScore * 100);
     
-    return Math.min(0.95, (consentRatio * 0.7 + planBonus + 0.1));
+    return {
+        treatment_consent_likelihood: finalScore,
+        percentage: percentage,
+        reasoning: `治療同意可能性 ${percentage}%の根拠:\n` +
+                  `・同意表現: ${consentCount}回 vs 迷い表現: ${hesitationCount}回\n` +
+                  `・同意比率: ${Math.round(consentRatio * 100)}% (重み70%)\n` +
+                  `・治療計画言及: ${hasTreatmentPlan ? 'あり' : 'なし'} (+${Math.round(planBonus * 100)}%)\n` +
+                  `・基礎点: 10%`,
+        breakdown: {
+            consent_expressions: { count: consentCount, keywords: consentKeywords },
+            hesitation_expressions: { count: hesitationCount, keywords: hesitationKeywords },
+            consent_ratio: consentRatio,
+            plan_bonus: { has_plan: hasTreatmentPlan, bonus: planBonus },
+            patient_lines_count: patientLines.length
+        }
+    };
 }
 
 // 実データに基づく改善提案生成
@@ -2331,7 +2390,7 @@ function evaluateStructureQuality(soapResult) {
 
 // 臨床精度評価
 function evaluateClinicalAccuracy(soapResult) {
-    if (!soapResult) return 0.5; // デフォルト値
+    if (!soapResult) return { accuracy: 0.1, reasoning: 'SOAP結果が存在しないため最低評価' };
     
     const clinicalIndicators = [
         '痛み', '腫れ', '出血', '虫歯', '歯周病', '治療',
@@ -2340,12 +2399,24 @@ function evaluateClinicalAccuracy(soapResult) {
     
     const allContent = Object.values(soapResult).join(' ');
     let clinicalTermCount = 0;
+    const detectedTerms = [];
     
     clinicalIndicators.forEach(indicator => {
-        if (allContent.includes(indicator)) clinicalTermCount++;
+        if (allContent.includes(indicator)) {
+            clinicalTermCount++;
+            detectedTerms.push(indicator);
+        }
     });
     
-    return Math.min(1.0, clinicalTermCount / clinicalIndicators.length * 1.2);
+    const accuracy = Math.min(1.0, clinicalTermCount / clinicalIndicators.length * 1.2);
+    const percentage = Math.round(accuracy * 100);
+    
+    return {
+        accuracy,
+        reasoning: `医療用語検出: ${detectedTerms.length}個 (${detectedTerms.join(', ')}) / 全${clinicalIndicators.length}個中 → ${percentage}%`,
+        detected_terms: detectedTerms,
+        total_possible: clinicalIndicators.length
+    };
 }
 
 // AI結果に基づく改善提案生成

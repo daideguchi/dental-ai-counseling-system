@@ -53,12 +53,17 @@
 }
 
 .soap-item textarea {
-    min-height: 60px;
-    padding: 8px;
+    min-height: 120px;
+    max-height: 300px;
+    padding: 12px;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
     resize: vertical;
-    font-size: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 .evaluation-summary {
@@ -1174,13 +1179,18 @@ body {
 
 .soap-item textarea {
     width: 100%;
-    min-height: 80px;
+    min-height: 120px;
+    max-height: 300px;
     border: 1px solid var(--gray-300);
     border-radius: var(--radius-sm);
-    padding: var(--spacing-sm);
+    padding: var(--spacing-md);
     font-family: inherit;
-    font-size: 0.875rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
     resize: vertical;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 .edit-btn {

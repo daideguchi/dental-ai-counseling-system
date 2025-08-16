@@ -12,9 +12,9 @@ class GeminiIntegration {
    if (configured) {
      this.apiEndpoint = configured;
    } else if (isProduction) {
-     this.apiEndpoint = '/api/gemini'; // Vercel本番環境
+     this.apiEndpoint = '/api'; // Vercel本番環境
    } else {
-     this.apiEndpoint = 'http://localhost:8001/api/gemini'; // ローカル開発
+     this.apiEndpoint = 'http://localhost:8001/api'; // ローカル開発
    }
    
    this.isConnected = false;
