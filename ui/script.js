@@ -2055,6 +2055,9 @@ async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
         console.log('✅ Gemini AI品質分析を使用');
         const aiQualityResult = await geminiIntegration.analyzeQuality(fileContent);
         
+        // 実データ分析も併用して根拠説明を追加
+        const realDataAnalysis = analyzeQualityFromRealData(fileContent, fileAnalysis);
+        
         // AI結果に追加メトリクスを統合
         const aiQualityMetrics = {
             ai_soap_completeness: evaluateSOAPCompleteness(aiSOAPResult),
@@ -2064,11 +2067,19 @@ async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
         };
         
         console.log('🤖 AI品質分析結果:', aiQualityResult);
+        console.log('📊 実データ分析結果（根拠用）:', realDataAnalysis);
         
         return {
             ...aiQualityResult, // AI分析結果を最優先
+            // 実データ分析からの根拠説明を追加
+            success_possibility_reasoning: realDataAnalysis.success_possibility_reasoning,
+            patient_understanding_reasoning: realDataAnalysis.patient_understanding_reasoning,
+            treatment_consent_reasoning: realDataAnalysis.treatment_consent_reasoning,
+            success_possibility_breakdown: realDataAnalysis.success_possibility_breakdown,
+            patient_understanding_breakdown: realDataAnalysis.patient_understanding_breakdown,
+            treatment_consent_breakdown: realDataAnalysis.treatment_consent_breakdown,
             ai_metrics: aiQualityMetrics,
-            method: 'ai_advanced_analysis',
+            method: 'ai_with_detailed_reasoning',
             enhancement_suggestions: [
                 ...(aiQualityResult.improvement_suggestions || []),
                 ...generateAIBasedSuggestions(aiSOAPResult)
@@ -2718,6 +2729,13 @@ function displayResults(result) {
     const reasoningComm = document.getElementById('reasoning-communication');
     const reasoningUnder = document.getElementById('reasoning-understanding');
     const reasoningConsent = document.getElementById('reasoning-consent');
+    
+    console.log('🔍 評価根拠データ確認:', {
+        quality: optimizedResult.quality,
+        success_reasoning: optimizedResult.quality.success_possibility_reasoning,
+        understanding_reasoning: optimizedResult.quality.patient_understanding_reasoning,
+        consent_reasoning: optimizedResult.quality.treatment_consent_reasoning
+    });
     
     if (reasoningComm) {
         reasoningComm.textContent = optimizedResult.quality.success_possibility_reasoning || 
