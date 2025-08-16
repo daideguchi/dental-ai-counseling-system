@@ -1,1 +1,13 @@
-{}
+{
+  "functions": {
+    "api/*.py": {
+      "runtime": "python3.9"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/gemini/(.*)",
+      "destination": "/api/$1"
+    }
+  ]
+}
