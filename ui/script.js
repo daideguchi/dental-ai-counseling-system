@@ -2263,7 +2263,7 @@ function analyzeSuccessFromText(text, lines) {
         reasoning: generateSimpleSuccessReasoning(
             percentage, positiveCount, positiveCount, negativeCount,
             hasDiscussion, false, 0, 
-            positiveKeywords, positiveKeywords, negativeKeywords, ['信頼', '安心'], text
+            positiveKeywords, positiveKeywords, negativeKeywords, [], text
         ),
         method: 'direct_text_analysis'
     };
