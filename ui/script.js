@@ -787,8 +787,7 @@ async function processWithAI(fileContent, file) {
     let aiIdentification = null;
     let fallbackIdentification = null;
     
-    // 1. OpenAI GPT-4.1による高精度話者識別を最優先 [一時的にコメントアウト]
-    /*
+    // 1. OpenAI GPT-4.1による高精度話者識別を最優先
     try {
         addProcessingLog('🚀 OpenAI GPT-4.1による高精度話者識別を実行', 'info');
         aiIdentification = await callOpenAIAnalysis(fileContent, 'identification');
@@ -797,9 +796,8 @@ async function processWithAI(fileContent, file) {
     } catch (openaiError) {
         console.warn('⚠️ OpenAI識別失敗、Geminiにフォールバック:', openaiError);
         addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
-    */
         
-        // 1. Gemini API (メイン処理)
+        // 2. フォールバック: Gemini API
         if (geminiIntegration && geminiIntegration.isConnected) {
             addProcessingLog('🤖 Gemini AIが話者を自動識別しています', 'info');
             try {
@@ -852,8 +850,7 @@ async function processWithAI(fileContent, file) {
     
     addProcessingLog(`👥 識別結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'info');
     
-    // 1. OpenAI GPT-4.1による高精度SOAP変換を最優先 [一時的にコメントアウト]
-    /*
+    // 1. OpenAI GPT-4.1による高精度SOAP変換を最優先
     try {
         addProcessingLog('🚀 OpenAI GPT-4.1による高精度SOAP変換を実行', 'info');
         console.log('🚀 DEBUG: OpenAI SOAP変換開始');
@@ -880,9 +877,8 @@ async function processWithAI(fileContent, file) {
     } catch (openaiError) {
         console.warn('⚠️ OpenAI SOAP変換失敗、Geminiにフォールバック:', openaiError);
         addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
-    */
         
-        // 1. Gemini API (メイン処理)
+        // 2. フォールバック: Gemini API
         if (geminiIntegration && geminiIntegration.isConnected) {
             addProcessingLog('🤖 Gemini AIが会話内容を医療記録に変換しています', 'info');
             try {
@@ -2108,8 +2104,7 @@ function selectBestSOAPSection(aiSection, fallbackSection, sectionType) {
 async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
     console.log('🤖 AI品質分析開始 - OpenAI GPT-4.1による高精度分析');
     
-    // 1. OpenAI GPT-4.1を最優先で使用 [一時的にコメントアウト]
-    /*
+    // 1. OpenAI GPT-4.1を最優先で使用
     try {
         console.log('🚀 OpenAI GPT-4.1品質分析を使用');
         const openaiQualityResult = await callOpenAIAnalysis(fileContent, 'quality');
@@ -2133,11 +2128,10 @@ async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
         
     } catch (openaiError) {
         console.warn('⚠️ OpenAI分析失敗、Geminiにフォールバック:', openaiError);
-    */
         
-        // 1. Gemini AI (メイン処理)
+        // 2. フォールバック: Gemini AI
         if (geminiIntegration && geminiIntegration.isConnected) {
-            console.log('✅ Gemini AI品質分析を使用（メイン処理）');
+            console.log('✅ Gemini AI品質分析を使用（フォールバック）');
             const aiQualityResult = await geminiIntegration.analyzeQuality(fileContent);
             
             // 実データ分析も併用して根拠説明を追加
