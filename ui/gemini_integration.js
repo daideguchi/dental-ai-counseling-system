@@ -102,8 +102,8 @@ ${conversationText}
  fallbackIdentification(conversationText) {
    let patientName = '患者';
    let doctorName = '医師';
-   let patientConfidence = 0.4;
-   let doctorConfidence = 0.4;
+   let patientConfidence = 0;
+   let doctorConfidence = 0;
 
    // 安全なパターンマッチング（○○さん、○○先生のみ）
    console.log('🔍 gemini_integration.js フォールバック識別開始');
@@ -133,7 +133,8 @@ ${conversationText}
        patientCandidates[a] > patientCandidates[b] ? a : b
      );
      patientName = bestPatient;
-     patientConfidence = Math.min(0.95, 0.7 + (patientCandidates[bestPatient] * 0.1));
+     // 実データから信頼度計算
+     patientConfidence = Math.min(0.95, 0.5 + (patientCandidates[bestPatient] * 0.15));
      console.log('✅ フォールバック患者名特定:', patientName, '(出現回数:', patientCandidates[bestPatient], ')');
    }
    
@@ -163,7 +164,8 @@ ${conversationText}
        doctorCandidates[a] > doctorCandidates[b] ? a : b
      );
      doctorName = bestDoctor;
-     doctorConfidence = Math.min(0.95, 0.7 + (doctorCandidates[bestDoctor] * 0.1));
+     // 実データから信頼度計算
+     doctorConfidence = Math.min(0.95, 0.5 + (doctorCandidates[bestDoctor] * 0.15));
      console.log('✅ フォールバック医師名特定:', doctorName, '(出現回数:', doctorCandidates[bestDoctor], ')');
    } else {
      console.log('⚠️ 医師名パターンマッチング失敗 - デフォルト「医師」を使用');
@@ -190,11 +192,13 @@ ${conversationText}
      // A/Bパターンの場合、通常はA=患者、B=医師
      if (patientName === '患者' && speakerACount > 2) {
        patientName = '話者A(患者)';
-       patientConfidence = 0.7;
+       // Speaker Aパターンから実計算
+       patientConfidence = Math.min(0.8, 0.4 + (speakerACount * 0.1));
      }
      if (doctorName === '医師' && speakerBCount > 2) {
        doctorName = '話者B(医師)';
-       doctorConfidence = 0.7;
+       // Speaker Bパターンから実計算
+       doctorConfidence = Math.min(0.8, 0.4 + (speakerBCount * 0.1));
      }
    }
 
@@ -535,20 +539,23 @@ ${conversationText}
    return dentalTerms.filter(term => text.includes(term)).length;
  }
 
- // 信頼度計算
+ // 信頼度計算（実データベース）
  calculateSOAPConfidence(soap, patientCount, doctorCount) {
-   let confidence = 0.4;
+   let confidence = 0; // 固定基準値廃止
    
-   // 各セクションの内容量で信頼度調整
+   // 各セクションの実際の充実度で信頼度計算
    Object.values(soap).forEach(section => {
-     if (section && section.length > 20) confidence += 0.1;
-     if (section && section.length > 50) confidence += 0.05;
+     if (section && section.length > 0) {
+       confidence += Math.min(0.15, section.length * 0.005); // 内容量に応じて
+     }
    });
    
-   // 発言数による調整
-   confidence += Math.min(0.2, (patientCount + doctorCount) * 0.02);
+   // 発言数による実データ調整
+   if (patientCount > 0 && doctorCount > 0) {
+     confidence += Math.min(0.3, (patientCount + doctorCount) * 0.02);
+   }
    
-   return Math.min(0.85, confidence);
+   return Math.min(0.95, Math.max(0.05, confidence)); // 最低5%保証
  }
 
  // 影響を受けた歯の抽出
@@ -675,13 +682,13 @@ ${conversationText}
      if (conversationText.includes(word)) confusionCount++;
    });
 
-   // 実際の理解表現から計算（初期値なし）
+   // 実際の理解表現から計算（固定値廃止）
    let patientUnderstanding = 0;
    if (understandingCount + confusionCount > 0) {
      patientUnderstanding = understandingCount / (understandingCount + confusionCount);
    } else if (totalLines > 5) {
-     // 長い会話があるが理解・混乱表現がない場合は中程度
-     patientUnderstanding = 0.4;
+     // 長い会話があるが理解・混乱表現がない場合は発言量から推定
+     patientUnderstanding = Math.min(0.5, totalLines * 0.02);
    }
    analysis.patient_understanding = Math.max(0.05, Math.min(0.95, patientUnderstanding));
 
@@ -699,13 +706,13 @@ ${conversationText}
      if (conversationText.includes(phrase)) easyCount++;
    });
 
-   // 専門用語とわかりやすい説明のバランスから計算
+   // 専門用語とわかりやすい説明のバランスから計算（固定値廃止）
    let doctorExplanation = 0;
    if (explanationCount > 0) {
      doctorExplanation = Math.min(0.95, (easyCount * 0.2 + technicalCount * 0.1 + explanationCount * 0.15));
    } else if (totalLines > 3) {
-     // 会話があるが説明表現がない場合
-     doctorExplanation = 0.2;
+     // 会話があるが説明表現がない場合は会話量から推定
+     doctorExplanation = Math.min(0.3, totalLines * 0.015);
    }
    analysis.doctor_explanation = doctorExplanation;
 
@@ -723,13 +730,13 @@ ${conversationText}
      if (conversationText.includes(word)) hesitationCount++;
    });
 
-   // 実際の発言から計算（固定値なし）
+   // 実際の発言から計算（固定値廃止）
    let treatmentConsent = 0;
    if (consentCount + hesitationCount > 0) {
      treatmentConsent = consentCount / (consentCount + hesitationCount);
    } else if (conversationText.includes('治療') || conversationText.includes('処置')) {
-     // 治療話題があるが明確な同意・躊躇がない場合
-     treatmentConsent = 0.3;
+     // 治療話題があるが明確な同意・躊躇がない場合は会話量から推定
+     treatmentConsent = Math.min(0.4, totalLines * 0.01);
    }
    
    analysis.treatment_consent_likelihood = Math.max(0.05, Math.min(0.95, treatmentConsent));
@@ -800,8 +807,12 @@ ${conversationText}
      }
    }
 
-   // 基本フィールドのデフォルト値設定
-   if (!result.confidence) result.confidence = 0.5;
+   // 基本フィールドの実データ設定（固定値廃止）
+   if (!result.confidence) {
+     // 実データから信頼度を計算
+     result.confidence = result.dental_specifics ? 
+       Math.min(0.7, Object.keys(result.dental_specifics).length * 0.1) : 0.1;
+   }
    if (!result.key_points) result.key_points = [];
    if (!result.method) result.method = 'api_processing';
 

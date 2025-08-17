@@ -823,9 +823,12 @@ async function processWithAI(fileContent, file) {
         fallbackIdentification = { patient_name: '患者', doctor_name: '医師', confidence: 0 };
     }
     
-    // 4. 結果の統合（AI結果を優先）
+    // 4. 結果の統合（実データ信頼度比較）
     addProcessingLog('🔀 識別結果を整理しています', 'info');
-    if (aiIdentification && aiIdentification.confidence > 0.5) {
+    const aiConfidence = (aiIdentification && aiIdentification.confidence) ? aiIdentification.confidence : 0;
+    const fallbackConfidence = (fallbackIdentification && fallbackIdentification.confidence) ? fallbackIdentification.confidence : 0;
+    
+    if (aiIdentification && aiConfidence > fallbackConfidence && aiConfidence > 0.4) {
         // AI識別が高信頼度の場合はAI結果を採用
         enhancedIdentification = {
             ...aiIdentification,
@@ -1424,8 +1427,8 @@ function parseMarkdownSummary(content) {
 function identifyPatientDoctor(content) {
     let patientName = '患者';
     let doctorName = '医師';
-    let patientConfidence = 0.5;
-    let doctorConfidence = 0.5;
+    let patientConfidence = 0;
+    let doctorConfidence = 0;
     
     console.log('👥 患者・医師識別開始');
     
@@ -1445,8 +1448,10 @@ function identifyPatientDoctor(content) {
         
         if (mostFrequentPatient && mostFrequentPatient.length >= 2) {
             patientName = mostFrequentPatient;
-            patientConfidence = 0.9;
-            console.log('✅ 患者名特定:', patientName);
+            // 実データから信頼度計算
+            const patientMentions = nameFreq[mostFrequentPatient];
+            patientConfidence = Math.min(0.95, 0.6 + (patientMentions * 0.15));
+            console.log('✅ 患者名特定:', patientName, '信頼度:', Math.round(patientConfidence * 100) + '%');
         }
     }
     
@@ -1459,8 +1464,10 @@ function identifyPatientDoctor(content) {
         
         if (doctorNameCandidates.length > 0) {
             doctorName = doctorNameCandidates[0];
-            doctorConfidence = 0.8;
-            console.log('✅ 医師名特定:', doctorName);
+            // 実データから信頼度計算
+            const doctorMentions = content.split(doctorName).length - 1;
+            doctorConfidence = Math.min(0.95, 0.5 + (doctorMentions * 0.2));
+            console.log('✅ 医師名特定:', doctorName, '信頼度:', Math.round(doctorConfidence * 100) + '%');
         }
     }
     
@@ -1480,8 +1487,10 @@ function identifyPatientDoctor(content) {
     // 会話形式が確認できた場合の信頼度向上
     if (patientLineCount > 0 && doctorLineCount > 0) {
         console.log(`✅ 会話形式確認: 患者発言${patientLineCount}回, 医師発言${doctorLineCount}回`);
-        patientConfidence = Math.max(patientConfidence, 0.7);
-        doctorConfidence = Math.max(doctorConfidence, 0.7);
+        // 実際の発言数から信頼度計算
+        const conversationConfidenceBoost = Math.min(0.4, (patientLineCount + doctorLineCount) * 0.03);
+        patientConfidence = Math.max(patientConfidence, 0.4 + conversationConfidenceBoost);
+        doctorConfidence = Math.max(doctorConfidence, 0.4 + conversationConfidenceBoost);
     }
     
     // 4. Speaker A/B パターンがある場合の分析
@@ -1513,7 +1522,7 @@ function identifyPatientDoctor(content) {
 
 // Speaker/発言者パターンの詳細分析
 function analyzeSpeakerPatterns(content) {
-    const analysis = { patientName: null, doctorName: null, confidence: 0.5 };
+    const analysis = { patientName: null, doctorName: null, confidence: 0 };
     
     // Speaker A/B パターン
     const speakerALines = content.match(/Speaker\s*A[：:]?\s*(.+?)(?=\n|Speaker|$)/gi) || [];
@@ -1539,14 +1548,17 @@ function analyzeSpeakerPatterns(content) {
     });
     
     // より医師らしい発言をしているSpeakerを医師と判定
-    if (speakerADoctorScore > speakerBDoctorScore) {
+    const totalLines = speakerALines.length + speakerBLines.length;
+    if (speakerADoctorScore > speakerBDoctorScore && speakerADoctorScore > 0) {
         analysis.doctorName = 'Speaker A';
         analysis.patientName = 'Speaker B';
-        analysis.confidence = 0.6;
-    } else if (speakerBDoctorScore > speakerADoctorScore) {
+        // 実データから信頼度計算
+        analysis.confidence = Math.min(0.9, 0.4 + (speakerADoctorScore / Math.max(totalLines, 1)) * 0.5);
+    } else if (speakerBDoctorScore > speakerADoctorScore && speakerBDoctorScore > 0) {
         analysis.doctorName = 'Speaker B';
         analysis.patientName = 'Speaker A';
-        analysis.confidence = 0.6;
+        // 実データから信頼度計算
+        analysis.confidence = Math.min(0.9, 0.4 + (speakerBDoctorScore / Math.max(totalLines, 1)) * 0.5);
     }
     
     return analysis;
@@ -2000,13 +2012,16 @@ function evaluateSOAPQuality(soapSections) {
 
 // 患者・医師識別結果の統合
 function mergeIdentificationResults(aiResult, fallbackResult) {
-    // AIが利用可能でより高精度の場合はAI結果を優先
-    if (aiResult && aiResult.confidence && aiResult.confidence > 0.7) {
+    // 実データベース統合：AI結果とフォールバック結果を信頼度で比較
+    const aiConfidence = (aiResult && aiResult.confidence) ? aiResult.confidence : 0;
+    const fallbackConfidence = (fallbackResult && fallbackResult.confidence) ? fallbackResult.confidence : 0;
+    
+    if (aiResult && aiConfidence > fallbackConfidence && aiConfidence > 0.6) {
         return {
             ...aiResult,
             method: 'ai_primary',
             fallback_data: fallbackResult,
-            confidence_combined: Math.max(aiResult.confidence, fallbackResult.confidence || 0.5)
+            confidence_combined: Math.max(aiConfidence, fallbackConfidence)
         };
     }
     
@@ -2034,8 +2049,11 @@ function mergeIdentificationResults(aiResult, fallbackResult) {
 
 // SOAP結果の統合
 function mergeSOAPResults(aiResult, fallbackResult) {
-    // AIが利用可能で十分な内容がある場合はAI結果を優先
-    if (aiResult && aiResult.confidence && aiResult.confidence > 0.6) {
+    // 実データベース統合：AI結果とフォールバック結果を信頼度で比較
+    const aiConfidence = (aiResult && aiResult.confidence) ? aiResult.confidence : 0;
+    const fallbackConfidence = (fallbackResult && fallbackResult.confidence) ? fallbackResult.confidence : 0;
+    
+    if (aiResult && aiConfidence > fallbackConfidence && aiConfidence > 0.5) {
         return {
             ...aiResult,
             method: 'ai_primary',
@@ -2755,22 +2773,26 @@ function generatePlan(statements) {
     return `治療計画: ${selected.join('。 ')}。`;
 }
 
-// 信頼度計算
+// 信頼度計算（実データベース）
 function calculateConfidence(categorizedContent, totalConversations) {
-    let confidence = 0.3; // 基本値
+    let confidence = 0; // 固定基準値廃止、実データから計算
     
-    // 会話数による加算
-    if (totalConversations >= 10) confidence += 0.3;
-    else if (totalConversations >= 5) confidence += 0.2;
-    else confidence += 0.1;
+    // 会話数による実データ計算
+    confidence += Math.min(0.4, totalConversations * 0.03);
     
-    // 各SOAP要素の充実度による加算
-    if (categorizedContent.subjective.size >= 2) confidence += 0.1;
-    if (categorizedContent.objective.size >= 2) confidence += 0.1;
-    if (categorizedContent.assessment.size >= 1) confidence += 0.1;
-    if (categorizedContent.plan.size >= 1) confidence += 0.1;
+    // 各SOAP要素の充実度による実計算
+    const subjectiveItems = categorizedContent.subjective ? categorizedContent.subjective.size : 0;
+    const objectiveItems = categorizedContent.objective ? categorizedContent.objective.size : 0;
+    const assessmentItems = categorizedContent.assessment ? categorizedContent.assessment.size : 0;
+    const planItems = categorizedContent.plan ? categorizedContent.plan.size : 0;
     
-    return Math.min(0.95, confidence); // 最大95%
+    // 実際の要素数から信頼度を計算
+    confidence += Math.min(0.2, subjectiveItems * 0.05);
+    confidence += Math.min(0.2, objectiveItems * 0.05);
+    confidence += Math.min(0.15, assessmentItems * 0.08);
+    confidence += Math.min(0.15, planItems * 0.08);
+    
+    return Math.min(0.95, Math.max(0.05, confidence)); // 最低5%は保証
 }
 
 // 【廃止】固定値計算による品質分析 - AI分析を使用
