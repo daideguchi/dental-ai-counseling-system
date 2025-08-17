@@ -131,7 +131,7 @@ class handler(BaseHTTPRequestHandler):
 }}"""
 
         response = client.chat.completions.create(
-            model="gpt-5",
+            model="gpt-5-chat",
             messages=[
                 {"role": "system", "content": "あなたはGPT-5の能力を最大限活用する歯科医療コミュニケーション最高位専門分析AIです。極めて正確で詳細な分析を行い、必ずJSONフォーマットで結果を返してください。"},
                 {"role": "user", "content": prompt}
@@ -210,7 +210,7 @@ class handler(BaseHTTPRequestHandler):
 }}"""
 
         response = client.chat.completions.create(
-            model="gpt-5",
+            model="gpt-5-chat",
             messages=[
                 {"role": "system", "content": "あなたはGPT-5の能力を最大活用する話者識別専門AIです。正確な分析をJSONで返してください。"},
                 {"role": "user", "content": prompt}
@@ -299,7 +299,7 @@ class handler(BaseHTTPRequestHandler):
 }}"""
 
         response = client.chat.completions.create(
-            model="gpt-5",
+            model="gpt-5-chat",
             messages=[
                 {"role": "system", "content": "あなたはGPT-5の能力を最大活用する歯科SOAP記録専門AIです。正確で詳細な医療記録をJSONで作成してください。"},
                 {"role": "user", "content": prompt}

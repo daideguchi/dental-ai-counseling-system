@@ -157,7 +157,7 @@ class handler(BaseHTTPRequestHandler):
 改善提案と良い点も具体的に挙げてください。"""
 
         response = client.chat.completions.create(
-            model="gpt-4.1",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "あなたは歯科医療コミュニケーションの専門分析AIです。正確で詳細な分析を行い、構造化されたJSONで結果を返してください。"},
                 {"role": "user", "content": prompt}
@@ -210,7 +210,7 @@ class handler(BaseHTTPRequestHandler):
 事実に基づいて正確に特定してください。"""
 
         response = client.chat.completions.create(
-            model="gpt-4.1",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "あなたは医療会話分析の専門AIです。話者を正確に特定し、構造化されたJSONで結果を返してください。"},
                 {"role": "user", "content": prompt}
@@ -301,7 +301,7 @@ class handler(BaseHTTPRequestHandler):
 - 数値データは正確に転記"""
 
         response = client.chat.completions.create(
-            model="gpt-4.1",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "あなたは歯科医療記録の専門家です。正確で詳細なSOAP記録を作成し、構造化されたJSONで結果を返してください。"},
                 {"role": "user", "content": prompt}

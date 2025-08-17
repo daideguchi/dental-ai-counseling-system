@@ -3309,8 +3309,8 @@ function displayResults(result) {
     }
     if (reasoningConsent) {
         reasoningConsent.textContent = optimizedResult.quality.treatment_consent_reasoning || 
-            optimizedResult.quality.treatment_consent_likelihood_reasoning || 
             '根拠データが利用できません';
+        console.log('🔍 治療同意根拠表示:', optimizedResult.quality.treatment_consent_reasoning?.substring(0, 100));
     }
     
     // 4. 処理ログ表示（最適化されたログ使用）
