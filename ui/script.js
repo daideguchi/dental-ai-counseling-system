@@ -1374,34 +1374,80 @@ function parseNottaTxtConversation(content) {
 // Notta CSV解析
 function parseNottaCSV(content) {
     const lines = content.trim().split('\n');
-    const headers = lines[0].split(',');
+    if (lines.length === 0) {
+        return { speakers: [], conversations: [], timeStamps: [] };
+    }
+
+    const parseCSVLine = (line) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+                if (inQuotes && line[i + 1] === '"') { // Escaped quote
+                    current += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (ch === ',' && !inQuotes) {
+                result.push(current);
+                current = '';
+            } else {
+                current += ch;
+            }
+        }
+        result.push(current);
+        return result.map(v => v.trim());
+    };
+
+    // Parse headers and build index map by name
+    const rawHeader = lines[0].replace(/^\uFEFF/, ''); // Strip BOM if present
+    const headers = parseCSVLine(rawHeader).map(h => h.toLowerCase());
+    const idx = (nameCandidates) => {
+        for (const cand of nameCandidates) {
+            const i = headers.indexOf(cand);
+            if (i !== -1) return i;
+        }
+        return -1;
+    };
+
+    const iSpeaker = idx(['speaker', '話者', '発言者']);
+    const iText = idx(['text', '内容', 'テキスト']);
+    const iStart = idx(['start time', 'start', '開始時刻', '開始']);
+    const iEnd = idx(['end time', 'end', '終了時刻', '終了']);
+
     const conversations = [];
     const speakers = new Set();
     const timeStamps = [];
-    
+
     for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',');
-        if (values.length >= 5) {
-            const speaker = values[0];
-            const startTime = values[1];
-            const endTime = values[2];
-            const text = values[4];
-            
-            speakers.add(speaker);
-            timeStamps.push({ start: startTime, end: endTime });
+        const values = parseCSVLine(lines[i]);
+        if (values.length === 0 || values.every(v => v === '')) continue;
+
+        const speaker = (iSpeaker >= 0 && iSpeaker < values.length) ? values[iSpeaker] : '';
+        const text = (iText >= 0 && iText < values.length) ? values[iText] : values[values.length - 1];
+        const startTime = (iStart >= 0 && iStart < values.length) ? values[iStart] : '';
+        const endTime = (iEnd >= 0 && iEnd < values.length) ? values[iEnd] : '';
+
+        if (speaker) speakers.add(speaker);
+        if (startTime || endTime) timeStamps.push({ start: startTime, end: endTime });
+
+        if (text && text.length > 0) {
             conversations.push({
                 id: i - 1,
-                speaker: speaker,
+                speaker: speaker || 'Speaker',
                 text: text,
-                startTime: startTime,
-                endTime: endTime,
-                role: speaker === 'Speaker 1' ? '医師' : '患者'
+                startTime,
+                endTime,
+                role: /^(speaker\s*1|医師|先生)$/i.test(speaker) ? '医師' : '患者'
             });
         }
     }
-    
+
     return {
-        speakers: Array.from(speakers).map(s => ({ id: s, role: s === 'Speaker 1' ? '医師' : '患者' })),
+        speakers: Array.from(speakers).map(s => ({ id: s, role: /^(speaker\s*1|医師|先生)$/i.test(s) ? '医師' : '患者' })),
         conversations,
         timeStamps
     };
