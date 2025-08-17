@@ -2255,10 +2255,16 @@ function analyzeSuccessFromText(text, lines) {
         score = Math.max(0.05, Math.min(0.95, score));
     }
     
+    const percentage = Math.round(score * 100);
+    
     return {
         score: score,
-        percentage: Math.round(score * 100),
-        reasoning: `テキスト分析結果: 積極的表現${positiveCount}個、消極的表現${negativeCount}個、治療関連言及${hasDiscussion ? 'あり' : 'なし'}、総行数${lineCount}行から算出`,
+        percentage: percentage,
+        reasoning: generateSimpleSuccessReasoning(
+            percentage, positiveCount, positiveCount, negativeCount,
+            hasDiscussion, false, 0, 
+            positiveKeywords, positiveKeywords, negativeKeywords, [], text
+        ),
         method: 'direct_text_analysis'
     };
 }
@@ -2288,10 +2294,15 @@ function analyzeUnderstandingFromText(text, lines) {
         score = Math.max(0.05, Math.min(0.95, score));
     }
     
+    const percentage = Math.round(score * 100);
+    
     return {
         score: score,
-        percentage: Math.round(score * 100),
-        reasoning: `理解表現${understandingCount}個、混乱表現${confusionCount}個、平均発言長${Math.round(avgLineLength)}文字から算出`,
+        percentage: percentage,
+        reasoning: generateSimpleUnderstandingReasoning(
+            percentage, understandingCount, confusionCount, avgLineLength, 
+            lines.length, understandingWords, confusionWords, text
+        ),
         method: 'direct_text_analysis'
     };
 }
@@ -2315,16 +2326,32 @@ function analyzeConsentFromText(text, lines) {
     
     let score = 0;
     if (lines.length > 0) {
-        const consentRatio = consentCount / (consentCount + hesitationCount + 1);
-        const planBonus = hasTreatmentPlan ? 0.2 : 0;
-        score = consentRatio * 0.7 + planBonus + 0.1;
+        // 実データのみから計算（固定値一切使用禁止）
+        if (consentCount + hesitationCount > 0) {
+            const consentRatio = consentCount / (consentCount + hesitationCount);
+            score = consentRatio;
+            
+            // 治療計画言及がある場合は実際の言及回数で加算
+            if (hasTreatmentPlan) {
+                const treatmentMentions = (text.match(/治療|処置|次回/g) || []).length;
+                score += Math.min(0.3, treatmentMentions * 0.1);
+            }
+        } else if (lines.length > 3) {
+            // 発言はあるが明確な意思表示がない場合は発言量から推定
+            score = Math.min(0.4, lines.length * 0.02);
+        }
         score = Math.max(0.05, Math.min(0.95, score));
     }
     
+    const percentage = Math.round(score * 100);
+    
     return {
         score: score,
-        percentage: Math.round(score * 100),
-        reasoning: `同意表現${consentCount}個、迷い表現${hesitationCount}個、治療計画言及${hasTreatmentPlan ? 'あり' : 'なし'}から算出`,
+        percentage: percentage,
+        reasoning: generateSimpleConsentReasoning(
+            percentage, consentCount, hesitationCount, hasTreatmentPlan, 
+            lines.length, consentWords, hesitationWords, text
+        ),
         method: 'direct_text_analysis'
     };
 }
@@ -2598,7 +2625,10 @@ function calculateRealConsentLikelihood(content, conversations) {
             consent_expressions: { count: consentCount, keywords: consentKeywords },
             hesitation_expressions: { count: hesitationCount, keywords: hesitationKeywords },
             consent_ratio: consentRatio,
-            plan_bonus: { has_plan: hasTreatmentPlan, bonus: planBonus },
+            treatment_mentions: { 
+                has_plan: hasTreatmentPlan, 
+                mention_count: (content.match(/治療|処置|次回/g) || []).length 
+            },
             patient_lines_count: patientLines.length
         }
     };
