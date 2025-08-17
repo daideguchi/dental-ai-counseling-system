@@ -2258,13 +2258,10 @@ function analyzeSuccessFromText(text, lines) {
     const percentage = Math.round(score * 100);
     
     return {
+        success_possibility: score,
         score: score,
         percentage: percentage,
-        reasoning: generateSimpleSuccessReasoning(
-            percentage, positiveCount, positiveCount, negativeCount,
-            hasDiscussion, false, 0, 
-            positiveKeywords, positiveKeywords, negativeKeywords, [], text
-        ),
+        reasoning: `📊 成約可能性の根拠\n成約可能性 ${percentage}%の理由:\n\n😊 前向きな発言: ${positiveCount}回\n${(positiveKeywords || []).filter(word => text.includes(word)).length > 0 ? '「' + (positiveKeywords || []).filter(word => text.includes(word)).join('」「') + '」など' : '特になし'}\n\n😰 迷いや不安: ${negativeCount}回\n${(negativeKeywords || []).filter(word => text.includes(word)).length > 0 ? '「' + (negativeKeywords || []).filter(word => text.includes(word)).join('」「') + '」など' : '特になし'}\n\n💰 費用の話: ${hasDiscussion ? 'あり' : 'なし'}\n📅 予約の話: なし`,
         method: 'direct_text_analysis'
     };
 }
@@ -2297,12 +2294,10 @@ function analyzeUnderstandingFromText(text, lines) {
     const percentage = Math.round(score * 100);
     
     return {
+        patient_understanding: score,
         score: score,
         percentage: percentage,
-        reasoning: generateSimpleUnderstandingReasoning(
-            percentage, understandingCount, confusionCount, avgLineLength, 
-            lines.length, understandingWords, confusionWords, text
-        ),
+        reasoning: `🧠 患者理解度の根拠\n患者理解度 ${percentage}%の理由:\n\n✅ 理解を示す発言: ${understandingCount}回\n${(understandingWords || []).filter(word => text.includes(word)).length > 0 ? '「' + (understandingWords || []).filter(word => text.includes(word)).join('」「') + '」など' : '特になし'}\n\n❓ 混乱を示す発言: ${confusionCount}回\n${(confusionWords || []).filter(word => text.includes(word)).length > 0 ? '「' + (confusionWords || []).filter(word => text.includes(word)).join('」「') + '」など' : '特になし'}\n\n📝 発言の詳しさ: 平均${Math.round(avgLineLength)}文字\n📢 発言の回数: ${lines.length}回\n\n→ 詳しく話せているほど、よく理解している証拠です`,
         method: 'direct_text_analysis'
     };
 }
@@ -2347,12 +2342,10 @@ function analyzeConsentFromText(text, lines) {
     const percentage = Math.round(score * 100);
     
     return {
+        treatment_consent_likelihood: score,
         score: score,
         percentage: percentage,
-        reasoning: generateSimpleConsentReasoning(
-            percentage, consentCount, hesitationCount, hasTreatmentPlan, 
-            lines.length, consentWords, hesitationWords, text
-        ),
+        reasoning: `✅ 治療同意の根拠\n治療同意可能性 ${percentage}%の理由:\n\n👍 やる気を示す発言: ${consentCount}回\n${(consentWords || []).filter(word => text.includes(word)).length > 0 ? '「' + (consentWords || []).filter(word => text.includes(word)).join('」「') + '」など' : '特になし'}\n\n🤔 迷いを示す発言: ${hesitationCount}回\n${(hesitationWords || []).filter(word => text.includes(word)).length > 0 ? '「' + (hesitationWords || []).filter(word => text.includes(word)).join('」「') + '」など' : '特になし'}\n\n🏥 治療の話題: ${hasTreatmentPlan ? 'あり' : 'なし'}\n📢 発言の回数: ${lines.length}回\n\n→ やる気の発言が多いほど、治療を受ける可能性が高くなります`,
         method: 'direct_text_analysis'
     };
 }
