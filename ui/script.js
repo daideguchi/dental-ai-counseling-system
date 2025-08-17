@@ -3284,7 +3284,7 @@ function displayResults(result) {
     
     if (evalComm) evalComm.textContent = `${Math.round((optimizedResult.quality.success_possibility || 0) * 100)}%`;
     if (evalUnder) evalUnder.textContent = `${Math.round((optimizedResult.quality.patient_understanding || 0) * 100)}%`;
-    if (evalConsent) evalConsent.textContent = `${Math.round((optimizedResult.quality.treatment_consent_likelihood || 0) * 100)}%`;
+    if (evalConsent) evalConsent.textContent = `${Math.round((optimizedResult.quality.treatment_consent_likelihood || optimizedResult.quality.treatment_consent || 0) * 100)}%`;
     
     // 3.1. 評価根拠説明表示
     const reasoningComm = document.getElementById('reasoning-communication');
@@ -3348,11 +3348,7 @@ function displayResults(result) {
         }
     }
     
-    // 5. DB保存状況表示
-    const saveStatusEl = document.getElementById('save-status');
-    if (saveStatusEl) {
-        saveStatusEl.innerHTML = '<span>保存状況: 未保存</span>';
-    }
+    // DB保存ステータス表示は削除（ユーザーリクエスト）
     
     // 保存ボタンを有効化
     const saveBtn = DOM.saveBtn();
@@ -3643,12 +3639,7 @@ function offerJSONLDownload(jsonlString, sessionId) {
 
 // 保存成功表示（JSONL形式対応・わかりやすい版）
 function displaySaveSuccess(jsonlRecord) {
-    // DB保存状況を更新
-    const saveStatusEl = document.getElementById('save-status');
-    if (saveStatusEl) {
-        saveStatusEl.innerHTML = '<span>保存状況: 保存完了</span>';
-        saveStatusEl.classList.add('saved');
-    }
+    // DB保存ステータス表示は削除（ユーザーリクエスト）
     
     // ステップ4の詳細情報を更新
     const sessionIdEl = document.getElementById('saved-session-id');
