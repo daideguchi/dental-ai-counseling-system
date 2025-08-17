@@ -796,15 +796,24 @@ async function processWithAI(fileContent, file) {
     let aiIdentification = null;
     let fallbackIdentification = null;
     
-    // 1. OpenAI GPT-4.1による高精度話者識別を最優先
+    // 1. OpenRouter GPT-5による最高精度話者識別を最優先
     try {
-        addProcessingLog('🚀 OpenAI GPT-4.1による高精度話者識別を実行', 'info');
-        aiIdentification = await callOpenAIAnalysis(fileContent, 'identification');
-        addProcessingLog(`✅ OpenAI GPT-4.1が識別しました: 患者さん「${aiIdentification.patient_name}」、医師「${aiIdentification.doctor_name}」`, 'success');
+        addProcessingLog('🚀 OpenRouter GPT-5による最高精度話者識別を実行', 'info');
+        aiIdentification = await callOpenRouterAnalysis(fileContent, 'identification');
+        addProcessingLog(`✅ OpenRouter GPT-5が識別しました: 患者さん「${aiIdentification.patient_name}」、医師「${aiIdentification.doctor_name}」`, 'success');
         
-    } catch (openaiError) {
-        console.warn('⚠️ OpenAI識別失敗、Geminiにフォールバック:', openaiError);
-        addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
+    } catch (openrouterError) {
+        console.warn('⚠️ OpenRouter識別失敗、OpenAIにフォールバック:', openrouterError);
+        addProcessingLog('⚠️ OpenRouter失敗、OpenAI APIにフォールバック', 'warning');
+        
+        // 1.5. フォールバック: OpenAI API
+        try {
+            addProcessingLog('🔄 OpenAI GPT-4による話者識別を実行', 'info');
+            aiIdentification = await callOpenAIAnalysis(fileContent, 'identification');
+            addProcessingLog(`✅ OpenAI GPT-4が識別しました: 患者さん「${aiIdentification.patient_name}」、医師「${aiIdentification.doctor_name}」`, 'success');
+        } catch (openaiError) {
+            console.warn('⚠️ OpenAI識別失敗、Geminiにフォールバック:', openaiError);
+            addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
         
         // 2. フォールバック: Gemini API
         if (geminiIntegration && geminiIntegration.isConnected) {
@@ -859,33 +868,45 @@ async function processWithAI(fileContent, file) {
     
     addProcessingLog(`👥 識別結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'info');
     
-    // 1. OpenAI GPT-4.1による高精度SOAP変換を最優先
+    // 1. OpenRouter GPT-5による最高精度SOAP変換を最優先
     try {
-        addProcessingLog('🚀 OpenAI GPT-4.1による高精度SOAP変換を実行', 'info');
-        console.log('🚀 DEBUG: OpenAI SOAP変換開始');
+        addProcessingLog('🚀 OpenRouter GPT-5による最高精度SOAP変換を実行', 'info');
+        console.log('🚀 DEBUG: OpenRouter SOAP変換開始');
         console.log('🚀 DEBUG: 患者名:', enhancedIdentification.patient_name);
         console.log('🚀 DEBUG: 医師名:', enhancedIdentification.doctor_name);
         
-        soapResult = await callOpenAIAnalysis(fileContent, 'soap', {
+        soapResult = await callOpenRouterAnalysis(fileContent, 'soap', {
             patient_name: enhancedIdentification.patient_name,
             doctor_name: enhancedIdentification.doctor_name
         });
         
-        console.log('🚀 DEBUG: OpenAI SOAP変換応答受信:', soapResult);
-        console.log('✅ OpenAI SOAP変換完了:', {
+        console.log('🚀 DEBUG: OpenRouter SOAP変換応答受信:', soapResult);
+        console.log('✅ OpenRouter SOAP変換完了:', {
             S_length: soapResult?.S?.length || 0,
             O_length: soapResult?.O?.length || 0,
             A_length: soapResult?.A?.length || 0,
             P_length: soapResult?.P?.length || 0,
             confidence: soapResult?.confidence || 0,
-            model: 'gpt-4.1'
+            model: 'gpt-5'
         });
         
-        addProcessingLog('✅ OpenAI GPT-4.1による高精度SOAP変換完了', 'success');
+        addProcessingLog('✅ OpenRouter GPT-5による最高精度SOAP変換完了', 'success');
         
-    } catch (openaiError) {
-        console.warn('⚠️ OpenAI SOAP変換失敗、Geminiにフォールバック:', openaiError);
-        addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
+    } catch (openrouterError) {
+        console.warn('⚠️ OpenRouter SOAP変換失敗、OpenAIにフォールバック:', openrouterError);
+        addProcessingLog('⚠️ OpenRouter失敗、OpenAI APIにフォールバック', 'warning');
+        
+        // 1.5. フォールバック: OpenAI API
+        try {
+            addProcessingLog('🔄 OpenAI GPT-4による SOAP変換を実行', 'info');
+            soapResult = await callOpenAIAnalysis(fileContent, 'soap', {
+                patient_name: enhancedIdentification.patient_name,
+                doctor_name: enhancedIdentification.doctor_name
+            });
+            addProcessingLog('✅ OpenAI GPT-4による SOAP変換完了', 'success');
+        } catch (openaiError) {
+            console.warn('⚠️ OpenAI SOAP変換失敗、Geminiにフォールバック:', openaiError);
+            addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
         
         // 2. フォールバック: Gemini API
         if (geminiIntegration && geminiIntegration.isConnected) {
@@ -2112,14 +2133,14 @@ function selectBestSOAPSection(aiSection, fallbackSection, sectionType) {
 
 // AI結果を含めた品質分析（OpenAI GPT-4.1優先）
 async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
-    console.log('🤖 AI品質分析開始 - OpenAI GPT-4.1による高精度分析');
+    console.log('🤖 AI品質分析開始 - OpenRouter GPT-5による最高精度分析');
     
-    // 1. OpenAI GPT-4.1を最優先で使用
+    // 1. OpenRouter GPT-5を最優先で使用
     try {
-        console.log('🚀 OpenAI GPT-4.1品質分析を使用');
-        const openaiQualityResult = await callOpenAIAnalysis(fileContent, 'quality');
+        console.log('🚀 OpenRouter GPT-5品質分析を使用');
+        const openrouterQualityResult = await callOpenRouterAnalysis(fileContent, 'quality');
         
-        console.log('🤖 OpenAI品質分析結果:', openaiQualityResult);
+        console.log('🤖 OpenRouter品質分析結果:', openrouterQualityResult);
         
         // AI結果に追加メトリクスを統合
         const aiQualityMetrics = {
@@ -2130,16 +2151,40 @@ async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
         };
         
         return {
-            ...openaiQualityResult, // OpenAI分析結果を最優先
+            ...openrouterQualityResult, // OpenRouter分析結果を最優先
             ai_metrics: aiQualityMetrics,
-            method: 'openai_gpt41_structured_analysis',
-            model_used: 'gpt-4.1'
+            method: 'openrouter_gpt5_structured_analysis',
+            model_used: 'gpt-5'
         };
         
-    } catch (openaiError) {
-        console.warn('⚠️ OpenAI分析失敗、Geminiにフォールバック:', openaiError);
+    } catch (openrouterError) {
+        console.warn('⚠️ OpenRouter分析失敗、OpenAIにフォールバック:', openrouterError);
         
-        // 2. フォールバック: Gemini AI
+        // 1.5. フォールバック: OpenAI API
+        try {
+            console.log('🔄 OpenAI GPT-4品質分析を使用（フォールバック）');
+            const openaiQualityResult = await callOpenAIAnalysis(fileContent, 'quality');
+            
+            const aiQualityMetrics = {
+                ai_soap_completeness: evaluateSOAPCompleteness(aiSOAPResult),
+                ai_medical_terminology: evaluateMedicalTerminology(aiSOAPResult),
+                ai_structure_quality: evaluateStructureQuality(aiSOAPResult),
+                ai_clinical_accuracy: evaluateClinicalAccuracy(aiSOAPResult)
+            };
+            
+            return {
+                ...openaiQualityResult,
+                ai_metrics: aiQualityMetrics,
+                method: 'openai_gpt4_fallback_analysis',
+                model_used: 'gpt-4'
+            };
+            
+        } catch (openaiError) {
+            console.warn('⚠️ OpenAI分析失敗、Geminiにフォールバック:', openaiError);
+        }
+    }
+        
+    // 2. フォールバック: Gemini AI
         if (geminiIntegration && geminiIntegration.isConnected) {
             console.log('✅ Gemini AI品質分析を使用（フォールバック）');
             const aiQualityResult = await geminiIntegration.analyzeQuality(fileContent);
@@ -2183,7 +2228,48 @@ async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
     }
 }
 
-// OpenAI API呼び出し関数
+// OpenRouter GPT-5 API呼び出し関数（最優先）
+async function callOpenRouterAnalysis(content, type, additionalData = {}) {
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const endpoint = isProduction ? '/api/openrouter_analysis' : 'http://localhost:8001/api/openrouter_analysis';
+    
+    const requestData = {
+        content: content,
+        type: type,
+        ...additionalData
+    };
+    
+    console.log('🔗 OpenRouter GPT-5 API呼び出し:', { endpoint, type, contentLength: content.length });
+    
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-API-Version': '2024-01'
+        },
+        body: JSON.stringify(requestData)
+    });
+    
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter API Error ${response.status}: ${errorText}`);
+    }
+    
+    // レスポンステキストを取得してからJSONパースを試行
+    const responseText = await response.text();
+    let result;
+    try {
+        result = JSON.parse(responseText);
+    } catch (jsonError) {
+        throw new Error(`OpenRouter API JSON Parse Error: ${jsonError.message}. Response: ${responseText.substring(0, 200)}`);
+    }
+    
+    console.log('✅ OpenRouter GPT-5 API応答:', result);
+    
+    return result;
+}
+
+// OpenAI API呼び出し関数（フォールバック用）
 async function callOpenAIAnalysis(content, type, additionalData = {}) {
     const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
     const endpoint = isProduction ? '/api/openai_analysis' : 'http://localhost:8001/api/openai_analysis';
