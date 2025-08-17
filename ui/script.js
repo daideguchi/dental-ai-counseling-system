@@ -814,6 +814,7 @@ async function processWithAI(fileContent, file) {
         } catch (openaiError) {
             console.warn('⚠️ OpenAI識別失敗、Geminiにフォールバック:', openaiError);
             addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
+        }
         
         // 2. フォールバック: Gemini API
         if (geminiIntegration && geminiIntegration.isConnected) {
@@ -907,6 +908,7 @@ async function processWithAI(fileContent, file) {
         } catch (openaiError) {
             console.warn('⚠️ OpenAI SOAP変換失敗、Geminiにフォールバック:', openaiError);
             addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
+        }
         
         // 2. フォールバック: Gemini API
         if (geminiIntegration && geminiIntegration.isConnected) {
@@ -2183,48 +2185,47 @@ async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
             console.warn('⚠️ OpenAI分析失敗、Geminiにフォールバック:', openaiError);
         }
     }
-        
+    
     // 2. フォールバック: Gemini AI
-        if (geminiIntegration && geminiIntegration.isConnected) {
-            console.log('✅ Gemini AI品質分析を使用（フォールバック）');
-            const aiQualityResult = await geminiIntegration.analyzeQuality(fileContent);
-            
-            // 実データ分析も併用して根拠説明を追加
-            const realDataAnalysis = analyzeQualityFromRealData(fileContent, fileAnalysis);
-            
-            // AI結果に追加メトリクスを統合
-            const aiQualityMetrics = {
-                ai_soap_completeness: evaluateSOAPCompleteness(aiSOAPResult),
-                ai_medical_terminology: evaluateMedicalTerminology(aiSOAPResult),
-                ai_structure_quality: evaluateStructureQuality(aiSOAPResult),
-                ai_clinical_accuracy: evaluateClinicalAccuracy(aiSOAPResult)
-            };
-            
-            console.log('🤖 Gemini品質分析結果:', aiQualityResult);
-            console.log('📊 実データ分析結果（根拠用）:', realDataAnalysis);
-            
-            return {
-                ...aiQualityResult, // AI分析結果を最優先
-                // 実データ分析からの根拠説明を追加
-                success_possibility_reasoning: realDataAnalysis.success_possibility_reasoning,
-                patient_understanding_reasoning: realDataAnalysis.patient_understanding_reasoning,
-                treatment_consent_reasoning: realDataAnalysis.treatment_consent_reasoning,
-                success_possibility_breakdown: realDataAnalysis.success_possibility_breakdown,
-                patient_understanding_breakdown: realDataAnalysis.patient_understanding_breakdown,
-                treatment_consent_breakdown: realDataAnalysis.treatment_consent_breakdown,
-                ai_metrics: aiQualityMetrics,
-                method: 'gemini_with_detailed_reasoning',
-                model_used: 'gemini-1.5-flash',
-                enhancement_suggestions: [
-                    ...(aiQualityResult.improvement_suggestions || []),
-                    ...generateAIBasedSuggestions(aiSOAPResult)
-                ]
-            };
-        } else {
-            // 3. 最終フォールバック: 実データ分析のみ
-            console.log('⚠️ AI接続なし - 実データ分析のみ使用');
-            return analyzeQualityFromRealData(fileContent, fileAnalysis);
-        }
+    if (geminiIntegration && geminiIntegration.isConnected) {
+        console.log('✅ Gemini AI品質分析を使用（フォールバック）');
+        const aiQualityResult = await geminiIntegration.analyzeQuality(fileContent);
+        
+        // 実データ分析も併用して根拠説明を追加
+        const realDataAnalysis = analyzeQualityFromRealData(fileContent, fileAnalysis);
+        
+        // AI結果に追加メトリクスを統合
+        const aiQualityMetrics = {
+            ai_soap_completeness: evaluateSOAPCompleteness(aiSOAPResult),
+            ai_medical_terminology: evaluateMedicalTerminology(aiSOAPResult),
+            ai_structure_quality: evaluateStructureQuality(aiSOAPResult),
+            ai_clinical_accuracy: evaluateClinicalAccuracy(aiSOAPResult)
+        };
+        
+        console.log('🤖 Gemini品質分析結果:', aiQualityResult);
+        console.log('📊 実データ分析結果（根拠用）:', realDataAnalysis);
+        
+        return {
+            ...aiQualityResult, // AI分析結果を最優先
+            // 実データ分析からの根拠説明を追加
+            success_possibility_reasoning: realDataAnalysis.success_possibility_reasoning,
+            patient_understanding_reasoning: realDataAnalysis.patient_understanding_reasoning,
+            treatment_consent_reasoning: realDataAnalysis.treatment_consent_reasoning,
+            success_possibility_breakdown: realDataAnalysis.success_possibility_breakdown,
+            patient_understanding_breakdown: realDataAnalysis.patient_understanding_breakdown,
+            treatment_consent_breakdown: realDataAnalysis.treatment_consent_breakdown,
+            ai_metrics: aiQualityMetrics,
+            method: 'gemini_with_detailed_reasoning',
+            model_used: 'gemini-1.5-flash',
+            enhancement_suggestions: [
+                ...(aiQualityResult.improvement_suggestions || []),
+                ...generateAIBasedSuggestions(aiSOAPResult)
+            ]
+        };
+    } else {
+        // 3. 最終フォールバック: 実データ分析のみ
+        console.log('⚠️ AI接続なし - 実データ分析のみ使用');
+        return analyzeQualityFromRealData(fileContent, fileAnalysis);
     }
 }
 
