@@ -2263,7 +2263,7 @@ function analyzeSuccessFromText(text, lines) {
         reasoning: generateSimpleSuccessReasoning(
             percentage, positiveCount, positiveCount, negativeCount,
             hasDiscussion, false, 0, 
-            positiveKeywords, positiveKeywords, negativeKeywords, [], text
+            positiveKeywords, positiveKeywords, negativeKeywords, ['信頼', '安心'], text
         ),
         method: 'direct_text_analysis'
     };
@@ -2325,10 +2325,11 @@ function analyzeConsentFromText(text, lines) {
     const hasTreatmentPlan = text.includes('治療') || text.includes('処置') || text.includes('次回');
     
     let score = 0;
+    let consentRatio = 0;
     if (lines.length > 0) {
         // 実データのみから計算（固定値一切使用禁止）
         if (consentCount + hesitationCount > 0) {
-            const consentRatio = consentCount / (consentCount + hesitationCount);
+            consentRatio = consentCount / (consentCount + hesitationCount);
             score = consentRatio;
             
             // 治療計画言及がある場合は実際の言及回数で加算
@@ -2596,9 +2597,10 @@ function calculateRealConsentLikelihood(content, conversations) {
     
     // 実データから同意可能性を計算（固定値一切使用禁止）
     let finalScore = 0;
+    let consentRatio = 0;
     if (consentCount + hesitationCount > 0) {
         // 同意と迷いの比率から計算
-        const consentRatio = consentCount / (consentCount + hesitationCount);
+        consentRatio = consentCount / (consentCount + hesitationCount);
         finalScore = consentRatio;
         
         // 治療計画の話題がある場合は実際の言及回数で加算
