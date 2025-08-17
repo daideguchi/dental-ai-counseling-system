@@ -787,7 +787,8 @@ async function processWithAI(fileContent, file) {
     let aiIdentification = null;
     let fallbackIdentification = null;
     
-    // 1. OpenAI GPT-4.1による高精度話者識別を最優先
+    // 1. OpenAI GPT-4.1による高精度話者識別を最優先 [一時的にコメントアウト]
+    /*
     try {
         addProcessingLog('🚀 OpenAI GPT-4.1による高精度話者識別を実行', 'info');
         aiIdentification = await callOpenAIAnalysis(fileContent, 'identification');
@@ -796,8 +797,9 @@ async function processWithAI(fileContent, file) {
     } catch (openaiError) {
         console.warn('⚠️ OpenAI識別失敗、Geminiにフォールバック:', openaiError);
         addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
+    */
         
-        // 2. フォールバック: Gemini API
+        // 1. Gemini API (メイン処理)
         if (geminiIntegration && geminiIntegration.isConnected) {
             addProcessingLog('🤖 Gemini AIが話者を自動識別しています', 'info');
             try {
@@ -850,7 +852,8 @@ async function processWithAI(fileContent, file) {
     
     addProcessingLog(`👥 識別結果: 患者さん「${enhancedIdentification.patient_name}」、医師「${enhancedIdentification.doctor_name}」`, 'info');
     
-    // 1. OpenAI GPT-4.1による高精度SOAP変換を最優先
+    // 1. OpenAI GPT-4.1による高精度SOAP変換を最優先 [一時的にコメントアウト]
+    /*
     try {
         addProcessingLog('🚀 OpenAI GPT-4.1による高精度SOAP変換を実行', 'info');
         console.log('🚀 DEBUG: OpenAI SOAP変換開始');
@@ -877,8 +880,9 @@ async function processWithAI(fileContent, file) {
     } catch (openaiError) {
         console.warn('⚠️ OpenAI SOAP変換失敗、Geminiにフォールバック:', openaiError);
         addProcessingLog('⚠️ OpenAI失敗、Gemini AIにフォールバック', 'warning');
+    */
         
-        // 2. フォールバック: Gemini API
+        // 1. Gemini API (メイン処理)
         if (geminiIntegration && geminiIntegration.isConnected) {
             addProcessingLog('🤖 Gemini AIが会話内容を医療記録に変換しています', 'info');
             try {
@@ -2104,7 +2108,8 @@ function selectBestSOAPSection(aiSection, fallbackSection, sectionType) {
 async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
     console.log('🤖 AI品質分析開始 - OpenAI GPT-4.1による高精度分析');
     
-    // 1. OpenAI GPT-4.1を最優先で使用
+    // 1. OpenAI GPT-4.1を最優先で使用 [一時的にコメントアウト]
+    /*
     try {
         console.log('🚀 OpenAI GPT-4.1品質分析を使用');
         const openaiQualityResult = await callOpenAIAnalysis(fileContent, 'quality');
@@ -2128,10 +2133,11 @@ async function analyzeQualityWithAI(fileContent, fileAnalysis, aiSOAPResult) {
         
     } catch (openaiError) {
         console.warn('⚠️ OpenAI分析失敗、Geminiにフォールバック:', openaiError);
+    */
         
-        // 2. フォールバック: Gemini AI
+        // 1. Gemini AI (メイン処理)
         if (geminiIntegration && geminiIntegration.isConnected) {
-            console.log('✅ Gemini AI品質分析を使用（フォールバック）');
+            console.log('✅ Gemini AI品質分析を使用（メイン処理）');
             const aiQualityResult = await geminiIntegration.analyzeQuality(fileContent);
             
             // 実データ分析も併用して根拠説明を追加
@@ -2417,11 +2423,11 @@ function calculateSuccessPossibility(content, conversations) {
     return {
         success_possibility: finalScore,
         percentage: percentage,
-        reasoning: `成約可能性 ${percentage}%の計算根拠:\n` +
-                  `・積極的関与: ${Math.round(engagementScore * 100)}% (検出キーワード${engagementCount}個) [特に重要35%]\n` +
-                  `・受諾姿勢: ${Math.round(acceptanceScore * 100)}% (積極的${acceptanceCount}個、迷い${hesitationCount}個) [最重要30%]\n` +
-                  `・具体的計画: ${Math.round(planningScore * 100)}% (費用${hasCostDiscussion ? '有' : '無'}、予約${hasScheduleDiscussion ? '有' : '無'}) [重要20%]\n` +
-                  `・信頼関係: ${Math.round(trustScore * 100)}% (検出キーワード${trustCount}個) [やや重要15%]`,
+        reasoning: generateSimpleSuccessReasoning(
+            percentage, engagementCount, acceptanceCount, hesitationCount,
+            hasCostDiscussion, hasScheduleDiscussion, trustCount, 
+            engagementKeywords, acceptanceKeywords, hesitationKeywords, trustKeywords, patientText
+        ),
         breakdown: {
             engagement: { score: engagementScore, count: engagementCount, weight: 0.3 },
             acceptance: { score: acceptanceScore, positive: acceptanceCount, hesitation: hesitationCount, weight: 0.35 },
@@ -2429,6 +2435,66 @@ function calculateSuccessPossibility(content, conversations) {
             trust: { score: trustScore, count: trustCount, weight: 0.15 }
         }
     };
+}
+
+// シンプルで分かりやすい成約可能性の説明
+function generateSimpleSuccessReasoning(
+    percentage, engagementCount, acceptanceCount, hesitationCount,
+    hasCostDiscussion, hasScheduleDiscussion, trustCount, 
+    engagementKeywords, acceptanceKeywords, hesitationKeywords, trustKeywords, patientText
+) {
+    const foundAcceptance = acceptanceKeywords.filter(word => patientText.includes(word));
+    const foundHesitation = hesitationKeywords.filter(word => patientText.includes(word));
+    const foundTrust = trustKeywords.filter(word => patientText.includes(word));
+    
+    return `📊 成約可能性の根拠\n` +
+           `成約可能性 ${percentage}%の理由:\n\n` +
+           `😊 前向きな発言: ${acceptanceCount}回\n` +
+           `${foundAcceptance.length > 0 ? '「' + foundAcceptance.join('」「') + '」など' : '特になし'}\n\n` +
+           `😰 迷いや不安: ${hesitationCount}回\n` +
+           `${foundHesitation.length > 0 ? '「' + foundHesitation.join('」「') + '」など' : '特になし'}\n\n` +
+           `💰 費用の話: ${hasCostDiscussion ? 'あり' : 'なし'}\n` +
+           `📅 予約の話: ${hasScheduleDiscussion ? 'あり' : 'なし'}\n\n` +
+           `💝 信頼を示す発言: ${trustCount}回\n` +
+           `${foundTrust.length > 0 ? '「' + foundTrust.join('」「') + '」など' : '特になし'}`;
+}
+
+// シンプルで分かりやすい患者理解度の説明
+function generateSimpleUnderstandingReasoning(
+    percentage, understandingCount, confusionCount, avgPatientLength, 
+    totalLines, understandingKeywords, confusionKeywords, patientText
+) {
+    const foundUnderstanding = understandingKeywords.filter(word => patientText.includes(word));
+    const foundConfusion = confusionKeywords.filter(word => patientText.includes(word));
+    
+    return `🧠 患者理解度の根拠\n` +
+           `患者理解度 ${percentage}%の理由:\n\n` +
+           `✅ 理解を示す発言: ${understandingCount}回\n` +
+           `${foundUnderstanding.length > 0 ? '「' + foundUnderstanding.join('」「') + '」など' : '特になし'}\n\n` +
+           `❓ 混乱を示す発言: ${confusionCount}回\n` +
+           `${foundConfusion.length > 0 ? '「' + foundConfusion.join('」「') + '」など' : '特になし'}\n\n` +
+           `📝 発言の詳しさ: 平均${Math.round(avgPatientLength)}文字\n` +
+           `📢 発言の回数: ${totalLines}回\n\n` +
+           `→ 詳しく話せているほど、よく理解している証拠です`;
+}
+
+// シンプルで分かりやすい治療同意可能性の説明
+function generateSimpleConsentReasoning(
+    percentage, consentCount, hesitationCount, hasTreatmentPlan, 
+    totalLines, consentKeywords, hesitationKeywords, patientText
+) {
+    const foundConsent = consentKeywords.filter(word => patientText.includes(word));
+    const foundHesitation = hesitationKeywords.filter(word => patientText.includes(word));
+    
+    return `✅ 治療同意の根拠\n` +
+           `治療同意可能性 ${percentage}%の理由:\n\n` +
+           `👍 やる気を示す発言: ${consentCount}回\n` +
+           `${foundConsent.length > 0 ? '「' + foundConsent.join('」「') + '」など' : '特になし'}\n\n` +
+           `🤔 迷いを示す発言: ${hesitationCount}回\n` +
+           `${foundHesitation.length > 0 ? '「' + foundHesitation.join('」「') + '」など' : '特になし'}\n\n` +
+           `🏥 治療の話題: ${hasTreatmentPlan ? 'あり' : 'なし'}\n` +
+           `📢 発言の回数: ${totalLines}回\n\n` +
+           `→ やる気の発言が多いほど、治療を受ける可能性が高くなります`;
 }
 
 // 実際の患者理解度計算
@@ -2468,10 +2534,10 @@ function calculateRealPatientUnderstanding(content, conversations) {
     return {
         patient_understanding: finalScore,
         percentage: percentage,
-        reasoning: `患者理解度 ${percentage}%の計算根拠:\n` +
-                  `・理解表現: ${understandingCount}回 vs 混乱表現: ${confusionCount}回 (理解度${Math.round(understandingRatio * 100)}%) [主要要素60%]\n` +
-                  `・発言の詳細さ: 平均${Math.round(avgPatientLength)}文字 (詳細度${Math.round(lengthScore * 100)}%) [補助要素40%]\n` +
-                  `・患者発言総数: ${patientLines.length}件`,
+        reasoning: generateSimpleUnderstandingReasoning(
+            percentage, understandingCount, confusionCount, avgPatientLength, 
+            patientLines.length, understandingKeywords, confusionKeywords, patientText
+        ),
         breakdown: {
             understanding_expressions: { count: understandingCount, ratio: understandingRatio, weight: 0.6 },
             speech_detail: { avg_length: avgPatientLength, score: lengthScore, weight: 0.4 },
@@ -2506,20 +2572,34 @@ function calculateRealConsentLikelihood(content, conversations) {
     
     // 治療計画への言及があるかチェック
     const hasTreatmentPlan = content.includes('治療') || content.includes('処置') || content.includes('次回');
-    const planBonus = hasTreatmentPlan ? 0.2 : 0;
     
-    const consentRatio = consentCount / (consentCount + hesitationCount + 1);
-    const finalScore = Math.min(0.95, (consentRatio * 0.7 + planBonus + 0.1));
+    // 実データから同意可能性を計算（固定値一切使用禁止）
+    let finalScore = 0;
+    if (consentCount + hesitationCount > 0) {
+        // 同意と迷いの比率から計算
+        const consentRatio = consentCount / (consentCount + hesitationCount);
+        finalScore = consentRatio;
+        
+        // 治療計画の話題がある場合は実際の言及回数で加算
+        if (hasTreatmentPlan) {
+            const treatmentMentions = (content.match(/治療|処置|次回/g) || []).length;
+            finalScore += Math.min(0.3, treatmentMentions * 0.1);
+        }
+    } else if (patientLines.length > 3) {
+        // 発言はあるが明確な同意・迷いがない場合は発言量から推定
+        finalScore = Math.min(0.4, patientLines.length * 0.02);
+    }
+    
+    finalScore = Math.min(0.95, Math.max(0.05, finalScore));
     const percentage = Math.round(finalScore * 100);
     
     return {
         treatment_consent_likelihood: finalScore,
         percentage: percentage,
-        reasoning: `治療同意可能性 ${percentage}%の計算根拠:\n` +
-                  `・同意表現: ${consentCount}回 vs 迷い表現: ${hesitationCount}回\n` +
-                  `・同意比率: ${Math.round(consentRatio * 100)}% [主要判定70%]\n` +
-                  `・治療計画言及: ${hasTreatmentPlan ? 'あり' : 'なし'} (+${Math.round(planBonus * 100)}%)\n` +
-                  `・基礎点: 10%`,
+        reasoning: generateSimpleConsentReasoning(
+            percentage, consentCount, hesitationCount, hasTreatmentPlan, 
+            patientLines.length, consentKeywords, hesitationKeywords, patientText
+        ),
         breakdown: {
             consent_expressions: { count: consentCount, keywords: consentKeywords },
             hesitation_expressions: { count: hesitationCount, keywords: hesitationKeywords },
@@ -3158,10 +3238,10 @@ function showSavePreview() {
     
     if (previewPatientName) previewPatientName.textContent = processedData.identification?.patient_name || '不明';
     if (previewDoctorName) previewDoctorName.textContent = processedData.identification?.doctor_name || '不明';
-    if (previewSData) previewSData.textContent = processedData.soap?.S || '情報なし';
-    if (previewOData) previewOData.textContent = processedData.soap?.O || '情報なし';
-    if (previewAData) previewAData.textContent = processedData.soap?.A || '情報なし';
-    if (previewPData) previewPData.textContent = processedData.soap?.P || '情報なし';
+    if (previewSData) previewSData.textContent = processedData.soap_record?.S || '情報なし';
+    if (previewOData) previewOData.textContent = processedData.soap_record?.O || '情報なし';
+    if (previewAData) previewAData.textContent = processedData.soap_record?.A || '情報なし';
+    if (previewPData) previewPData.textContent = processedData.soap_record?.P || '情報なし';
     if (previewSuccessRate) previewSuccessRate.textContent = `${Math.round((processedData.quality?.success_possibility || 0) * 100)}%`;
     if (previewUnderstandingRate) previewUnderstandingRate.textContent = `${Math.round((processedData.quality?.patient_understanding || 0) * 100)}%`;
     if (previewConsentRate) previewConsentRate.textContent = `${Math.round((processedData.quality?.treatment_consent_likelihood || 0) * 100)}%`;
