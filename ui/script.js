@@ -3452,6 +3452,15 @@ function showSavePreview() {
     const jsonlRecord = currentSessionData.jsonlData;
     const processedData = jsonlRecord.processed_data;
     
+    // デバッグ情報：データ構造確認
+    console.log('🔍 保存プレビューデータ構造確認:', {
+        hasJsonlRecord: !!jsonlRecord,
+        hasProcessedData: !!processedData,
+        soapRecord: processedData?.soap_record,
+        qualityAnalysis: processedData?.quality_analysis,
+        identification: processedData?.identification
+    });
+    
     // プレビューテーブルにデータを表示
     const previewPatientName = document.getElementById('preview-patient-name');
     const previewDoctorName = document.getElementById('preview-doctor-name');
@@ -3465,13 +3474,27 @@ function showSavePreview() {
     
     if (previewPatientName) previewPatientName.textContent = processedData.identification?.patient_name || '不明';
     if (previewDoctorName) previewDoctorName.textContent = processedData.identification?.doctor_name || '不明';
-    if (previewSData) previewSData.textContent = processedData.soap_record?.S || '情報なし';
-    if (previewOData) previewOData.textContent = processedData.soap_record?.O || '情報なし';
-    if (previewAData) previewAData.textContent = processedData.soap_record?.A || '情報なし';
-    if (previewPData) previewPData.textContent = processedData.soap_record?.P || '情報なし';
-    if (previewSuccessRate) previewSuccessRate.textContent = `${Math.round((processedData.quality?.success_possibility || 0) * 100)}%`;
-    if (previewUnderstandingRate) previewUnderstandingRate.textContent = `${Math.round((processedData.quality?.patient_understanding || 0) * 100)}%`;
-    if (previewConsentRate) previewConsentRate.textContent = `${Math.round((processedData.quality?.treatment_consent_likelihood || 0) * 100)}%`;
+    // SOAPデータの適切な変換処理
+    const formatSOAPData = (data) => {
+        if (!data) return '情報なし';
+        if (typeof data === 'string') return data;
+        if (typeof data === 'object') {
+            // オブジェクトの場合は適切に文字列化
+            if (data.content) return data.content;
+            if (data.text) return data.text;
+            if (data.summary) return data.summary;
+            return JSON.stringify(data, null, 2);
+        }
+        return String(data);
+    };
+    
+    if (previewSData) previewSData.textContent = formatSOAPData(processedData.soap_record?.S);
+    if (previewOData) previewOData.textContent = formatSOAPData(processedData.soap_record?.O);
+    if (previewAData) previewAData.textContent = formatSOAPData(processedData.soap_record?.A);
+    if (previewPData) previewPData.textContent = formatSOAPData(processedData.soap_record?.P);
+    if (previewSuccessRate) previewSuccessRate.textContent = `${Math.round((processedData.quality_analysis?.success_possibility || 0) * 100)}%`;
+    if (previewUnderstandingRate) previewUnderstandingRate.textContent = `${Math.round((processedData.quality_analysis?.patient_understanding || 0) * 100)}%`;
+    if (previewConsentRate) previewConsentRate.textContent = `${Math.round((processedData.quality_analysis?.treatment_consent_likelihood || processedData.quality_analysis?.treatment_consent || 0) * 100)}%`;
     
     // ステップ4に移動
     showStep(4);
