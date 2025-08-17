@@ -2210,7 +2210,15 @@ async function callOpenAIAnalysis(content, type, additionalData = {}) {
         throw new Error(`OpenAI API Error ${response.status}: ${errorText}`);
     }
     
-    const result = await response.json();
+    // レスポンステキストを取得してからJSONパースを試行
+    const responseText = await response.text();
+    let result;
+    try {
+        result = JSON.parse(responseText);
+    } catch (jsonError) {
+        throw new Error(`OpenAI API JSON Parse Error: ${jsonError.message}. Response: ${responseText.substring(0, 200)}`);
+    }
+    
     console.log('✅ OpenAI API応答:', result);
     
     return result;
@@ -2384,9 +2392,15 @@ function analyzeQualityFromRealData(fileContent, fileAnalysis) {
         patient_understanding_breakdown: understandingData.breakdown || {},
         
         // 治療同意可能性：実際の会話内容から判定
-        treatment_consent_likelihood: consentData.treatment_consent_likelihood || consentData,
+        treatment_consent_likelihood: Math.max(0.1, consentData.treatment_consent_likelihood || consentData || 0.1),
         treatment_consent_reasoning: consentData.reasoning || '詳細分析なし',
         treatment_consent_breakdown: consentData.breakdown || {},
+        
+        // コミュニケーション品質：実際の対話分析
+        communication_quality: calculateCommunicationQuality(fileContent, conversations),
+        
+        // 医師説明品質：実際の医師発言分析
+        doctor_explanation: calculateDoctorExplanationQuality(fileContent, conversations),
         
         // 改善提案：実データに基づく具体的提案
         improvement_suggestions: generateRealDataSuggestions(fileContent, conversations),
@@ -2530,6 +2544,8 @@ function calculateRealPatientUnderstanding(content, conversations) {
         return analyzeContentDirectly(content, 'patient_understanding');
     }
     
+    const patientText = patientLines.map(line => line.text).join(' ');
+    
     // 理解を示すキーワード
     const understandingKeywords = ['分かりました', 'はい', 'そうですね', 'なるほど', '理解', 'わかります'];
     const confusionKeywords = ['分からない', '？', 'よくわからない', '難しい', '不安'];
@@ -2637,6 +2653,59 @@ function calculateRealConsentLikelihood(content, conversations) {
             patient_lines_count: patientLines.length
         }
     };
+}
+
+// コミュニケーション品質計算
+function calculateCommunicationQuality(content, conversations) {
+    const doctorLines = conversations.filter(c => c.role === '医師');
+    const patientLines = conversations.filter(c => c.role === '患者');
+    
+    if (doctorLines.length === 0 || patientLines.length === 0) {
+        return 0.5; // デフォルト値
+    }
+    
+    // 対話のバランス（患者と医師の発言バランス）
+    const balanceRatio = Math.min(patientLines.length / doctorLines.length, doctorLines.length / patientLines.length);
+    
+    // 対話の深さ（平均発言長）
+    const avgDoctorLength = doctorLines.reduce((sum, line) => sum + line.text.length, 0) / doctorLines.length;
+    const avgPatientLength = patientLines.reduce((sum, line) => sum + line.text.length, 0) / patientLines.length;
+    const depthScore = Math.min((avgDoctorLength + avgPatientLength) / 100, 1);
+    
+    // 質問応答の質（患者の質問に対する医師の応答）
+    const patientQuestions = patientLines.filter(line => line.text.includes('？') || line.text.includes('?')).length;
+    const responseQuality = patientQuestions > 0 ? Math.min(doctorLines.length / patientQuestions, 1) : 0.8;
+    
+    const qualityScore = (balanceRatio * 0.3 + depthScore * 0.4 + responseQuality * 0.3);
+    return Math.max(0.1, Math.min(0.95, qualityScore));
+}
+
+// 医師説明品質計算
+function calculateDoctorExplanationQuality(content, conversations) {
+    const doctorLines = conversations.filter(c => c.role === '医師');
+    
+    if (doctorLines.length === 0) {
+        return 0.3; // デフォルト値
+    }
+    
+    const doctorText = doctorLines.map(line => line.text).join(' ');
+    
+    // 専門用語の適切な使用
+    const medicalTerms = ['歯', '治療', '検査', '診断', '症状', '処置', '予防', '虫歯', '歯周病'];
+    const termCount = medicalTerms.filter(term => doctorText.includes(term)).length;
+    const termScore = Math.min(termCount / 5, 1);
+    
+    // 説明の丁寧さ（敬語・丁寧語）
+    const politeExpressions = ['です', 'ます', 'でしょう', 'かと思います', 'していただく', 'おっしゃる'];
+    const politeCount = politeExpressions.filter(expr => doctorText.includes(expr)).length;
+    const politeScore = Math.min(politeCount / 3, 1);
+    
+    // 説明の詳しさ（平均発言長）
+    const avgLength = doctorLines.reduce((sum, line) => sum + line.text.length, 0) / doctorLines.length;
+    const detailScore = Math.min(avgLength / 50, 1);
+    
+    const explanationQuality = (termScore * 0.3 + politeScore * 0.3 + detailScore * 0.4);
+    return Math.max(0.1, Math.min(0.95, explanationQuality));
 }
 
 // 実データに基づく改善提案生成
