@@ -8,6 +8,7 @@ let appointmentData = [];
 let currentSessionData = null;
 let editMode = false;
 let processingLogContainer = null;
+let isProcessing = false;
 
 // DOM要素の取得
 const DOM = {
@@ -497,6 +498,12 @@ function utf8ToBase64(str) {
 // 処理開始
 async function startProcessing() {
     if (uploadedFiles.length === 0) return;
+    if (isProcessing) {
+        console.warn('⚠️ 処理中です。完了をお待ちください');
+        return;
+    }
+    
+    isProcessing = true;
     
     console.log('🤖 AI処理開始');
     
@@ -562,6 +569,8 @@ async function startProcessing() {
         addProcessingLog(`❌ 処理エラー: ${error.message}`, 'error');
         alert(`処理中にエラーが発生しました: ${error.message}`);
         showStep(1);
+    } finally {
+        isProcessing = false;
     }
 }
 
@@ -1087,18 +1096,19 @@ async function validateDentalContent(content) {
     let nonDentalScore = 0;
     let totalWords = 0;
     
-    const words = content.toLowerCase().split(/[\s\n\r\t　]+/);
+    const lowerContent = content.toLowerCase();
+    const words = lowerContent.split(/[\s\n\r\t　]+/);
     totalWords = words.length;
     
     // 歯科関連スコア計算
     dentalKeywords.forEach(keyword => {
-        const matches = content.toLowerCase().split(keyword.toLowerCase()).length - 1;
+        const matches = lowerContent.split(keyword.toLowerCase()).length - 1;
         dentalScore += matches;
     });
     
     // 非歯科関連スコア計算
     nonDentalKeywords.forEach(keyword => {
-        const matches = content.toLowerCase().split(keyword.toLowerCase()).length - 1;
+        const matches = lowerContent.split(keyword.toLowerCase()).length - 1;
         nonDentalScore += matches * 2; // 非歯科キーワードは重み付け
     });
     
@@ -3271,12 +3281,14 @@ function showSavePreview() {
     // 確認保存ボタンのイベントリスナーを設定
     const confirmSaveBtn = document.getElementById('confirm-save');
     if (confirmSaveBtn) {
+        // onclickを使用（既存のハンドラーを上書き）
         confirmSaveBtn.onclick = confirmDatabaseSave;
     }
     
     // JSONエクスポートボタンのイベントリスナーを設定
     const exportJsonBtn = document.getElementById('export-json');
     if (exportJsonBtn) {
+        // onclickを使用（既存のハンドラーを上書き）
         exportJsonBtn.onclick = () => exportDataAsJSON(jsonlRecord);
     }
 }
@@ -3363,7 +3375,13 @@ function getApiRoot() {
 
 // 保存インデックス更新（検索・管理用）
 function updateSaveIndex(sessionId, jsonlRecord) {
-    let saveIndex = JSON.parse(localStorage.getItem('dental_save_index') || '[]');
+    let saveIndex;
+    try {
+        saveIndex = JSON.parse(localStorage.getItem('dental_save_index') || '[]');
+    } catch (error) {
+        console.warn('保存インデックス読み込みエラー、初期化します:', error);
+        saveIndex = [];
+    }
     
     const indexEntry = {
         session_id: sessionId,
@@ -3653,6 +3671,7 @@ function resetApp() {
     uploadedFiles = [];
     currentSessionData = null;
     editMode = false;
+    isProcessing = false;
     
     // フォームリセット
     if (DOM.plaudFiles()) DOM.plaudFiles().value = '';
