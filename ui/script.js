@@ -384,7 +384,7 @@ function adjustUIAfterFileSelect() {
         // AI処理ボタンを強調
         if (processBtn && !processBtn.disabled) {
             processBtn.classList.add('file-ready');
-            processBtn.innerHTML = '<i class="fas fa-robot"></i> 🚀 AI処理を開始';
+            processBtn.innerHTML = '<i class="fas fa-robot"></i> AI処理を開始';
         }
         
         // フォーマット情報パネルを閉じる

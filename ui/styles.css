@@ -2796,3 +2796,56 @@ body {
         flex-direction: column;
     }
 }
+
+/* 追加レスポンシブ対応 - 非常に小さい画面 */
+@media (max-width: 360px) {
+    .main-content {
+        padding: 16px 12px;
+    }
+    
+    .app-header h1 {
+        font-size: 1.25rem;
+    }
+    
+    .upload-card {
+        padding: 16px;
+    }
+    
+    .btn-process {
+        width: 100%;
+        margin-top: 16px;
+    }
+    
+    .preview-table {
+        font-size: 0.7rem;
+    }
+    
+    .preview-table th,
+    .preview-table td {
+        padding: 6px;
+    }
+    
+    .soap-cell {
+        max-width: 150px;
+        font-size: 0.7rem;
+    }
+}
+
+/* フレックスボックス改善 */
+@media (max-width: 600px) {
+    .action-buttons {
+        gap: 12px;
+    }
+    
+    .btn {
+        min-height: 48px; /* タッチターゲット最小サイズ */
+    }
+    
+    .file-list-container {
+        margin-bottom: 16px;
+    }
+    
+    .format-info {
+        font-size: 0.9rem;
+    }
+}
